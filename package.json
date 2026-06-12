@@ -1,0 +1,71 @@
+{
+  "name": "tabby-serial-command-sidebar",
+  "version": "0.3.6",
+  "description": "A customizable command sidebar with quick actions, common commands and a persistent scratchpad for Tabby.",
+  "keywords": [
+    "tabby-plugin",
+    "tabby",
+    "terminal",
+    "serial",
+    "adb",
+    "command",
+    "sidebar",
+    "productivity"
+  ],
+  "author": {
+    "name": "rookie0422",
+    "url": "https://github.com/rookie0422"
+  },
+  "main": "dist/index.js",
+  "typings": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rookie0422/tabby-serial-command-sidebar.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rookie0422/tabby-serial-command-sidebar/issues"
+  },
+  "homepage": "https://github.com/rookie0422/tabby-serial-command-sidebar#readme",
+  "scripts": {
+    "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "npm run clean && webpack --progress --color",
+    "watch": "webpack --progress --color --watch",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run build && npm pack --dry-run",
+    "prepare": "npm run build"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@angular/common": "^15.2.10",
+    "@angular/core": "^15.2.10",
+    "@angular/forms": "^15.2.10",
+    "@angular/platform-browser": "^15.2.10",
+    "@ng-bootstrap/ng-bootstrap": "^14.2.0",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^18.19.0",
+    "@types/webpack-env": "^1.18.8",
+    "css-loader": "^6.11.0",
+    "js-yaml": "^4.1.1",
+    "rxjs": "^7.8.2",
+    "style-loader": "^3.3.4",
+    "tabby-core": "^1.0.231-nightly.0",
+    "tabby-settings": "^1.0.231-nightly.0",
+    "tabby-terminal": "^1.0.231-nightly.0",
+    "ts-loader": "^9.5.4",
+    "typescript": "^4.9.5",
+    "webpack": "^5.99.9",
+    "webpack-cli": "^4.10.0"
+  }
+}
