@@ -1,6 +1,6 @@
 {
   "name": "tabby-serial-command-sidebar",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "A customizable command sidebar with quick actions, common commands and a persistent scratchpad for Tabby.",
   "keywords": [
     "tabby-plugin",
@@ -31,7 +31,8 @@
     "build": "npm run clean && webpack --progress --color",
     "watch": "webpack --progress --color --watch",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm run build && npm pack --dry-run",
+    "test": "node scripts/test-model.js",
+    "check": "npm test && npm run typecheck && npm run build && npm pack --dry-run",
     "prepare": "npm run build"
   },
   "files": [

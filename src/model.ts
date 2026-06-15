@@ -130,6 +130,26 @@ function normalizeCategory (item: Partial<QuickCategory>, index: number): QuickC
 }
 
 export function normalizeConfig (raw: any): CommandSidebarPluginConfig {
+    // Tabby omits values that match provider defaults from config.yaml. This
+    // means a valid v2 config may not contain `version`, so the persisted
+    // structure itself must take precedence over any leftover legacy fields.
+    if (Array.isArray(raw?.categories)) {
+        const categories = raw.categories.map(normalizeCategory)
+        if (!categories.length) {
+            categories.push(...createDefaultCategories())
+        }
+        return {
+            version: 2,
+            enabled: raw.enabled !== false,
+            sidebarOpen: raw.sidebarOpen !== false,
+            sidebarWidth: Math.min(620, Math.max(320, Number(raw.sidebarWidth) || 390)),
+            activeCategoryId: categories.some(category => category.id === raw.activeCategoryId)
+                ? raw.activeCategoryId
+                : categories[0].id,
+            categories,
+        }
+    }
+
     const hasLegacyCollections = Array.isArray(raw?.quickButtons) || Array.isArray(raw?.snippets)
     if (hasLegacyCollections) {
         const legacy = raw as LegacyCommandSidebarPluginConfig
@@ -150,23 +170,6 @@ export function normalizeConfig (raw: any): CommandSidebarPluginConfig {
             sidebarOpen: legacy.sidebarOpen !== false,
             categories,
             activeCategoryId: categories[0].id,
-        }
-    }
-
-    if (raw?.version === 2 && Array.isArray(raw.categories)) {
-        const categories = raw.categories.map(normalizeCategory)
-        if (!categories.length) {
-            categories.push(...createDefaultCategories())
-        }
-        return {
-            version: 2,
-            enabled: raw.enabled !== false,
-            sidebarOpen: raw.sidebarOpen !== false,
-            sidebarWidth: Math.min(620, Math.max(320, Number(raw.sidebarWidth) || 390)),
-            activeCategoryId: categories.some(category => category.id === raw.activeCategoryId)
-                ? raw.activeCategoryId
-                : categories[0].id,
-            categories,
         }
     }
 

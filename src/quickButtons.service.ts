@@ -34,6 +34,15 @@ export class CommandSidebarService {
     private editorModal: HTMLElement | null = null
     private model: CommandSidebarPluginConfig | null = null
     private scratchSaveTimer: any = null
+    private readonly flushScratchSave = (): void => {
+        if (this.scratchSaveTimer === null) {
+            return
+        }
+        clearTimeout(this.scratchSaveTimer)
+        this.scratchSaveTimer = null
+        this.writeModelToConfig(this.getModel())
+        void this.config.save()
+    }
 
     constructor (
         private config: ConfigService,
@@ -58,6 +67,8 @@ export class CommandSidebarService {
             this.render()
         })
         this.app.activeTabChange$.subscribe(() => this.renderTarget())
+        window.addEventListener('beforeunload', this.flushScratchSave)
+        window.addEventListener('blur', this.flushScratchSave)
     }
 
     registerTab (tab: BaseTerminalTabComponent<any>): void {
@@ -366,12 +377,14 @@ export class CommandSidebarService {
         })
         textarea.addEventListener('input', () => {
             category.scratchpad = textarea.value
+            this.writeModelToConfig(this.getModel())
             clearTimeout(this.scratchSaveTimer)
             this.scratchSaveTimer = setTimeout(() => {
-                this.writeModelToConfig(this.getModel())
+                this.scratchSaveTimer = null
                 void this.config.save()
-            }, 400)
+            }, 250)
         })
+        textarea.addEventListener('blur', this.flushScratchSave)
         content.appendChild(textarea)
 
         const section = this.section(
@@ -929,6 +942,17 @@ export class CommandSidebarService {
         target.sidebarWidth = model.sidebarWidth
         target.activeCategoryId = model.activeCategoryId
         target.categories = model.categories
+        this.removeLegacyConfigValue(target, 'quickButtons')
+        this.removeLegacyConfigValue(target, 'snippets')
+        this.removeLegacyConfigValue(target, 'activeTab')
+    }
+
+    private removeLegacyConfigValue (target: any, key: string): void {
+        if (typeof target.__setValue === 'function') {
+            target.__setValue(key, undefined)
+        } else {
+            delete target[key]
+        }
     }
 
     private showStatus (message: string, isError = false): void {
