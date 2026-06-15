@@ -1,14 +1,15 @@
 import { Injectable } from '@angular/core'
 import { SettingsTabProvider } from 'tabby-settings'
-import { QuickButtonsSettingsTabComponent } from './settingsTab.component'
+import { CommandWorkbenchSettingsTabComponent } from './settingsTab.component'
+import { CONFIG_KEY } from './config'
 
 @Injectable()
-export class QuickButtonsSettingsTabProvider extends SettingsTabProvider {
-    id = 'serialCommandSidebar'
+export class CommandWorkbenchSettingsTabProvider extends SettingsTabProvider {
+    id = CONFIG_KEY
     icon = 'sidebar'
-    title = 'Serial Command Sidebar'
+    title = 'Command Workbench'
 
     getComponentType (): any {
-        return QuickButtonsSettingsTabComponent
+        return CommandWorkbenchSettingsTabComponent
     }
 }

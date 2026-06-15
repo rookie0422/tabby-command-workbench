@@ -1,10 +1,10 @@
-# Tabby Serial Command Sidebar
+# Tabby Command Workbench
 
-[![CI](https://github.com/rookie0422/tabby-serial-command-sidebar/actions/workflows/ci.yml/badge.svg)](https://github.com/rookie0422/tabby-serial-command-sidebar/actions/workflows/ci.yml)
-[![npm version](https://img.shields.io/npm/v/tabby-serial-command-sidebar.svg)](https://www.npmjs.com/package/tabby-serial-command-sidebar)
+[![CI](https://github.com/rookie0422/tabby-command-workbench/actions/workflows/ci.yml/badge.svg)](https://github.com/rookie0422/tabby-command-workbench/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/tabby-command-workbench.svg)](https://www.npmjs.com/package/tabby-command-workbench)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-一个面向串口、ADB 和日常终端调试的 Tabby 右侧快捷命令栏。
+一个按场景组织快捷操作、可复用命令和持久草稿的 Tabby 命令工作台。
 
 顶部 Tab 表示可自定义的使用场景。每个场景在同一页中包含快捷命令按钮、常用命令和临时复制区，适合在调试过程中快速填充、发送、复制和暂存多行文本。
 
@@ -28,7 +28,7 @@
 发布到 npm 后，在 Tabby 的 `Settings -> Plugins` 中搜索：
 
 ```text
-tabby-serial-command-sidebar
+tabby-command-workbench
 ```
 
 安装后重启 Tabby。
@@ -38,7 +38,7 @@ tabby-serial-command-sidebar
 也可以在 Tabby 的插件目录中安装：
 
 ```bash
-npm install tabby-serial-command-sidebar
+npm install tabby-command-workbench
 ```
 
 常见插件目录：
@@ -52,7 +52,7 @@ npm install tabby-serial-command-sidebar
 ### 从 GitHub 安装
 
 ```bash
-npm install github:rookie0422/tabby-serial-command-sidebar
+npm install github:rookie0422/tabby-command-workbench
 ```
 
 该方式会在安装过程中从源码构建插件。
@@ -67,7 +67,10 @@ npm install github:rookie0422/tabby-serial-command-sidebar
 - `Esc`：从临时复制区返回当前终端
 - 右上角关闭按钮：收起侧栏并返回当前终端
 
-侧栏可以在 Tabby 设置页的 `Serial Command Sidebar` 中启用、设置默认展开状态和调整宽度。
+工作台可以在 Tabby 设置页的 `Command Workbench` 中启用、设置默认展开状态和调整宽度。
+
+从 `tabby-serial-command-sidebar` 升级时，首次启动会自动迁移原有分类、按钮、
+常用命令和草稿内容。确认新版本正常后即可卸载旧包。
 
 ## 开发
 
@@ -86,7 +89,7 @@ npm run check
 
 - Provider: GitHub Actions
 - Organization or user: `rookie0422`
-- Repository: `tabby-serial-command-sidebar`
+- Repository: `tabby-command-workbench`
 - Workflow filename: `publish.yml`
 
 发布新版本时：

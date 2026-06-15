@@ -3,6 +3,7 @@ import { AppService, ConfigService, PlatformService, SplitTabComponent } from 't
 import { BaseTerminalTabComponent } from 'tabby-terminal'
 import * as yaml from 'js-yaml'
 import { createId, normalizeConfig } from './model'
+import { CONFIG_KEY, LEGACY_CONFIG_KEY, selectPersistedConfig } from './config'
 import {
     CommandSidebarPluginConfig,
     CommonCommand,
@@ -21,7 +22,7 @@ interface EditingState {
 }
 
 @Injectable({ providedIn: 'root' })
-export class CommandSidebarService {
+export class CommandWorkbenchService {
     private terminals: BaseTerminalTabComponent<any>[] = []
     private sidebar: HTMLElement | null = null
     private toggle: HTMLButtonElement | null = null
@@ -88,10 +89,12 @@ export class CommandSidebarService {
         if (this.configMigrated || !this.config.store) {
             return
         }
-        let source: any = (this.config.store as any).serialCommandSidebar
+        let source: any = (this.config.store as any)[CONFIG_KEY]
+        let hasLegacyConfig = false
         try {
             const raw = yaml.load(this.config.readRaw()) as any
-            source = raw?.serialCommandSidebar || source
+            source = selectPersistedConfig(raw, source)
+            hasLegacyConfig = raw?.[LEGACY_CONFIG_KEY] !== undefined
         } catch {
             // Continue with the proxied config if raw YAML parsing fails.
         }
@@ -99,7 +102,17 @@ export class CommandSidebarService {
         this.configMigrated = true
         this.model = normalized
         this.writeModelToConfig(normalized)
-        void this.config.save()
+        void this.persistMigration(hasLegacyConfig)
+    }
+
+    private async persistMigration (hasLegacyConfig: boolean): Promise<void> {
+        // Save the new key first. Removing the only persisted copy in the same
+        // write can lose data if another Tabby config save races startup.
+        await this.config.save()
+        if (hasLegacyConfig) {
+            this.removeConfigValue(this.config.store, LEGACY_CONFIG_KEY)
+            await this.config.save()
+        }
     }
 
     private ensureUi (): void {
@@ -113,8 +126,8 @@ export class CommandSidebarService {
             this.toggle = document.createElement('button')
             this.toggle.type = 'button'
             this.toggle.className = 'quick-shelf-toggle'
-            this.toggle.innerHTML = '<span>快捷侧栏</span>'
-            this.toggle.title = '打开快捷命令侧栏'
+            this.toggle.innerHTML = '<span>命令工作台</span>'
+            this.toggle.title = '打开命令工作台'
             this.toggle.addEventListener('click', () => this.updateModel(model => {
                 model.sidebarOpen = true
             }))
@@ -163,7 +176,7 @@ export class CommandSidebarService {
 
         const heading = document.createElement('div')
         heading.className = 'quick-shelf__heading'
-        heading.innerHTML = '<strong>Quick Shelf</strong><span class="quick-shelf__target"></span>'
+        heading.innerHTML = '<strong>Command Workbench</strong><span class="quick-shelf__target"></span>'
 
         const close = this.iconButton('×', '收起侧栏', () => {
             this.updateModel(model => {
@@ -600,8 +613,8 @@ export class CommandSidebarService {
         const text = this.textarea('内容', item.text)
         card.append(name.wrapper, color.wrapper, text.wrapper)
 
-        let description: ReturnType<CommandSidebarService['input']> | null = null
-        let action: ReturnType<CommandSidebarService['select']> | null = null
+        let description: ReturnType<CommandWorkbenchService['input']> | null = null
+        let action: ReturnType<CommandWorkbenchService['select']> | null = null
         let appendCR: HTMLInputElement | null = null
 
         if (kind === 'common') {
@@ -921,7 +934,7 @@ export class CommandSidebarService {
 
     private getModel (): CommandSidebarPluginConfig {
         if (!this.model) {
-            this.model = normalizeConfig((this.config.store as any).serialCommandSidebar)
+            this.model = normalizeConfig((this.config.store as any)[CONFIG_KEY])
         }
         return this.model
     }
@@ -935,7 +948,7 @@ export class CommandSidebarService {
     }
 
     private writeModelToConfig (model: CommandSidebarPluginConfig): void {
-        const target = (this.config.store as any).serialCommandSidebar
+        const target = (this.config.store as any)[CONFIG_KEY]
         target.version = model.version
         target.enabled = model.enabled
         target.sidebarOpen = model.sidebarOpen
@@ -948,6 +961,10 @@ export class CommandSidebarService {
     }
 
     private removeLegacyConfigValue (target: any, key: string): void {
+        this.removeConfigValue(target, key)
+    }
+
+    private removeConfigValue (target: any, key: string): void {
         if (typeof target.__setValue === 'function') {
             target.__setValue(key, undefined)
         } else {

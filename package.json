@@ -1,11 +1,13 @@
 {
-  "name": "tabby-serial-command-sidebar",
-  "version": "0.3.7",
-  "description": "A customizable command sidebar with quick actions, common commands and a persistent scratchpad for Tabby.",
+  "name": "tabby-command-workbench",
+  "version": "1.0.0",
+  "description": "A scene-based command workbench with quick actions, reusable commands and persistent scratchpads for Tabby.",
   "keywords": [
     "tabby-plugin",
     "tabby",
     "terminal",
+    "workflow",
+    "workbench",
     "serial",
     "adb",
     "command",
@@ -20,12 +22,12 @@
   "typings": "dist/index.d.ts",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rookie0422/tabby-serial-command-sidebar.git"
+    "url": "git+https://github.com/rookie0422/tabby-command-workbench.git"
   },
   "bugs": {
-    "url": "https://github.com/rookie0422/tabby-serial-command-sidebar/issues"
+    "url": "https://github.com/rookie0422/tabby-command-workbench/issues"
   },
-  "homepage": "https://github.com/rookie0422/tabby-serial-command-sidebar#readme",
+  "homepage": "https://github.com/rookie0422/tabby-command-workbench#readme",
   "scripts": {
     "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
     "build": "npm run clean && webpack --progress --color",

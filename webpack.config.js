@@ -10,7 +10,7 @@ module.exports = {
     path: path.resolve(__dirname, 'dist'),
     filename: 'index.js',
     libraryTarget: 'umd',
-    devtoolModuleFilenameTemplate: 'tabby-serial-command-sidebar:///[resource-path]',
+    devtoolModuleFilenameTemplate: 'tabby-command-workbench:///[resource-path]',
   },
   resolve: {
     modules: ['.', 'src', 'node_modules'].map(x => path.join(__dirname, x)),

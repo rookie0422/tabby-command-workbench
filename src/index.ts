@@ -5,10 +5,10 @@ import TabbyCoreModule, { ConfigProvider } from 'tabby-core'
 import { SettingsTabProvider } from 'tabby-settings'
 import { TerminalDecorator } from 'tabby-terminal'
 
-import { QuickButtonsConfigProvider } from './configProvider'
-import { QuickButtonsSettingsTabProvider } from './settingsTabProvider'
-import { QuickButtonsSettingsTabComponent } from './settingsTab.component'
-import { QuickButtonsTerminalDecorator } from './terminalDecorator'
+import { CommandWorkbenchConfigProvider } from './configProvider'
+import { CommandWorkbenchSettingsTabProvider } from './settingsTabProvider'
+import { CommandWorkbenchSettingsTabComponent } from './settingsTab.component'
+import { CommandWorkbenchTerminalDecorator } from './terminalDecorator'
 
 @NgModule({
     imports: [
@@ -17,12 +17,12 @@ import { QuickButtonsTerminalDecorator } from './terminalDecorator'
         TabbyCoreModule,
     ],
     providers: [
-        { provide: ConfigProvider, useClass: QuickButtonsConfigProvider, multi: true },
-        { provide: SettingsTabProvider, useClass: QuickButtonsSettingsTabProvider, multi: true },
-        { provide: TerminalDecorator, useClass: QuickButtonsTerminalDecorator, multi: true },
+        { provide: ConfigProvider, useClass: CommandWorkbenchConfigProvider, multi: true },
+        { provide: SettingsTabProvider, useClass: CommandWorkbenchSettingsTabProvider, multi: true },
+        { provide: TerminalDecorator, useClass: CommandWorkbenchTerminalDecorator, multi: true },
     ],
     declarations: [
-        QuickButtonsSettingsTabComponent,
+        CommandWorkbenchSettingsTabComponent,
     ],
 })
-export default class QuickButtonsModule { }
+export default class CommandWorkbenchModule { }

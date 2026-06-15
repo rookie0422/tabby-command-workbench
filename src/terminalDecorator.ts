@@ -1,21 +1,21 @@
 import { Injectable } from '@angular/core'
 import { BaseTerminalTabComponent, TerminalDecorator } from 'tabby-terminal'
-import { CommandSidebarService } from './quickButtons.service'
+import { CommandWorkbenchService } from './quickButtons.service'
 
 @Injectable()
-export class QuickButtonsTerminalDecorator extends TerminalDecorator {
+export class CommandWorkbenchTerminalDecorator extends TerminalDecorator {
     constructor (
-        private commandSidebar: CommandSidebarService,
+        private commandWorkbench: CommandWorkbenchService,
     ) {
         super()
     }
 
     attach (tab: BaseTerminalTabComponent<any>): void {
-        this.commandSidebar.registerTab(tab)
+        this.commandWorkbench.registerTab(tab)
     }
 
     detach (tab: BaseTerminalTabComponent<any>): void {
-        this.commandSidebar.unregisterTab(tab)
+        this.commandWorkbench.unregisterTab(tab)
         super.detach(tab)
     }
 }

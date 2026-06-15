@@ -22,6 +22,7 @@ function loadTypeScriptModule (filename) {
 }
 
 const model = loadTypeScriptModule(path.resolve(__dirname, '../src/model.ts'))
+const config = loadTypeScriptModule(path.resolve(__dirname, '../src/config.ts'))
 
 const mixedConfig = {
     quickButtons: [
@@ -69,4 +70,25 @@ const legacyOnly = model.normalizeConfig({
 })
 assert.equal(legacyOnly.categories[0].quickButtons[0].id, 'legacy-button')
 
-console.log('model persistence regression tests passed')
+const newConfig = { categories: [{ id: 'new-config' }] }
+const oldConfig = { categories: [{ id: 'old-config' }] }
+assert.equal(
+    config.selectPersistedConfig({
+        commandWorkbench: newConfig,
+        serialCommandSidebar: oldConfig,
+    }, null),
+    newConfig,
+)
+assert.equal(
+    config.selectPersistedConfig({ serialCommandSidebar: oldConfig }, null),
+    oldConfig,
+)
+assert.equal(
+    config.selectPersistedConfig({
+        commandWorkbench: {},
+        serialCommandSidebar: oldConfig,
+    }, null),
+    oldConfig,
+)
+
+console.log('configuration persistence and migration tests passed')

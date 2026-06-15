@@ -1,11 +1,12 @@
 import { Component } from '@angular/core'
 import { ConfigService } from 'tabby-core'
 import { CommandSidebarPluginConfig } from './types'
+import { CONFIG_KEY } from './config'
 
 @Component({
-    selector: 'serial-command-sidebar-settings',
+    selector: 'command-workbench-settings',
     template: `
-        <div class="serial-command-sidebar-settings">
+        <div class="command-workbench-settings">
             <label class="setting-line">
                 <input type="checkbox" [(ngModel)]="model.enabled" (change)="save()">
                 启用右侧常驻命令栏
@@ -34,7 +35,7 @@ import { CommandSidebarPluginConfig } from './types'
         </div>
     `,
     styles: [`
-        .serial-command-sidebar-settings {
+        .command-workbench-settings {
             display: flex;
             flex-direction: column;
             gap: 12px;
@@ -61,7 +62,7 @@ import { CommandSidebarPluginConfig } from './types'
         }
     `],
 })
-export class QuickButtonsSettingsTabComponent {
+export class CommandWorkbenchSettingsTabComponent {
     model: CommandSidebarPluginConfig
 
     constructor (
@@ -71,7 +72,7 @@ export class QuickButtonsSettingsTabComponent {
     }
 
     save (): void {
-        const target = (this.config.store as any).serialCommandSidebar
+        const target = (this.config.store as any)[CONFIG_KEY]
         target.enabled = this.model.enabled
         target.sidebarOpen = this.model.sidebarOpen
         target.sidebarWidth = this.model.sidebarWidth
@@ -80,6 +81,6 @@ export class QuickButtonsSettingsTabComponent {
 
     private getModel (): CommandSidebarPluginConfig {
         const store = this.config.store as any
-        return store.serialCommandSidebar
+        return store[CONFIG_KEY]
     }
 }
