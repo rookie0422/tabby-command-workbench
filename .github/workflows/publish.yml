@@ -44,5 +44,3 @@ jobs:
       - name: Publish
         if: steps.version.outputs.exists != 'true'
         run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
