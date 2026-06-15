@@ -68,3 +68,38 @@ npm install github:rookie0422/tabby-serial-command-sidebar
 - 右上角关闭按钮：收起侧栏并返回当前终端
 
 侧栏可以在 Tabby 设置页的 `Serial Command Sidebar` 中启用、设置默认展开状态和调整宽度。
+
+## 开发
+
+```bash
+npm install
+npm run check
+```
+
+`npm run check` 会依次运行持久化回归测试、TypeScript 类型检查、Webpack
+构建和 npm 包内容检查。
+
+## 发布
+
+项目通过 `.github/workflows/publish.yml` 和 npm Trusted Publishing 自动发布。
+在 npm 包设置中将 Trusted Publisher 配置为：
+
+- Provider: GitHub Actions
+- Organization or user: `rookie0422`
+- Repository: `tabby-serial-command-sidebar`
+- Workflow filename: `publish.yml`
+
+发布新版本时：
+
+```bash
+npm version patch --no-git-tag-version
+npm run check
+git add package.json package-lock.json
+git commit -m "Release vX.Y.Z"
+git tag -a vX.Y.Z -m "vX.Y.Z"
+git push origin main
+git push origin vX.Y.Z
+```
+
+最后在 GitHub 上发布对应标签的 Release。GitHub Actions 会通过 OIDC
+直接发布到 npm，不需要 `NPM_TOKEN`，也不需要手动输入 OTP。
