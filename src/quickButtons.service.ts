@@ -35,6 +35,8 @@ export class CommandWorkbenchService {
     private editorModal: HTMLElement | null = null
     private model: CommandSidebarPluginConfig | null = null
     private scratchSaveTimer: any = null
+    private resizeSaveTimer: any = null
+    private layoutRefreshFrame: number | null = null
     private readonly flushScratchSave = (): void => {
         if (this.scratchSaveTimer === null) {
             return
@@ -147,6 +149,7 @@ export class CommandWorkbenchService {
         this.sidebar.style.setProperty('--shelf-width', `${model.sidebarWidth}px`)
         this.sidebar.style.display = model.enabled && model.sidebarOpen ? 'flex' : 'none'
         this.toggle.style.display = model.enabled && !model.sidebarOpen ? 'flex' : 'none'
+        this.applyDockState(model)
         this.sidebar.innerHTML = ''
 
         if (!model.enabled || !model.sidebarOpen) {
@@ -155,6 +158,7 @@ export class CommandWorkbenchService {
 
         const category = this.getActiveCategory(model)
         this.sidebar.append(
+            this.createResizeHandle(),
             this.createHeader(),
             this.createCategoryBar(model),
         )
@@ -188,6 +192,49 @@ export class CommandWorkbenchService {
         header.append(heading, close)
         queueMicrotask(() => this.renderTarget())
         return header
+    }
+
+    private createResizeHandle (): HTMLElement {
+        const handle = document.createElement('div')
+        handle.className = 'quick-shelf__resize-handle'
+        handle.title = '拖动调整命令工作台宽度'
+        handle.addEventListener('pointerdown', event => {
+            if (event.button !== 0) {
+                return
+            }
+            event.preventDefault()
+            event.stopPropagation()
+            const startX = event.clientX
+            const model = this.getModel()
+            const startWidth = model.sidebarWidth
+            const maxWidth = this.getMaxDockWidth()
+            handle.setPointerCapture(event.pointerId)
+            document.body.classList.add('command-workbench-resizing')
+
+            const onMove = (moveEvent: PointerEvent): void => {
+                const width = this.clampWidth(startWidth + startX - moveEvent.clientX, maxWidth)
+                model.sidebarWidth = width
+                this.writeModelToConfig(model)
+                this.applyDockWidth(width)
+                this.scheduleLayoutRefresh()
+                clearTimeout(this.resizeSaveTimer)
+                this.resizeSaveTimer = setTimeout(() => {
+                    this.resizeSaveTimer = null
+                    void this.config.save()
+                }, 250)
+            }
+            const onUp = (upEvent: PointerEvent): void => {
+                handle.releasePointerCapture(upEvent.pointerId)
+                document.body.classList.remove('command-workbench-resizing')
+                window.removeEventListener('pointermove', onMove, true)
+                window.removeEventListener('pointerup', onUp, true)
+                this.flushResizeSave()
+            }
+
+            window.addEventListener('pointermove', onMove, true)
+            window.addEventListener('pointerup', onUp, true)
+        })
+        return handle
     }
 
     private renderTarget (): void {
@@ -732,6 +779,57 @@ export class CommandWorkbenchService {
         element.addEventListener('keyup', stopTerminalShortcut)
     }
 
+    private applyDockState (model: CommandSidebarPluginConfig): void {
+        const shouldDock = model.enabled && model.sidebarOpen
+        document.body.classList.toggle('command-workbench-docked', shouldDock)
+        if (shouldDock) {
+            this.applyDockWidth(model.sidebarWidth)
+        } else {
+            document.body.style.removeProperty('--command-workbench-width')
+        }
+        this.scheduleLayoutRefresh()
+    }
+
+    private applyDockWidth (width: number): void {
+        const clamped = this.clampWidth(width, this.getMaxDockWidth())
+        this.sidebar?.style.setProperty('--shelf-width', `${clamped}px`)
+        document.body.style.setProperty('--command-workbench-width', `${clamped}px`)
+    }
+
+    private getMaxDockWidth (): number {
+        return Math.max(300, Math.min(760, window.innerWidth - 240))
+    }
+
+    private clampWidth (width: number, maxWidth: number): number {
+        return Math.round(Math.min(maxWidth, Math.max(300, width)))
+    }
+
+    private flushResizeSave (): void {
+        if (this.resizeSaveTimer !== null) {
+            clearTimeout(this.resizeSaveTimer)
+            this.resizeSaveTimer = null
+        }
+        void this.config.save()
+    }
+
+    private scheduleLayoutRefresh (): void {
+        if (this.layoutRefreshFrame !== null) {
+            cancelAnimationFrame(this.layoutRefreshFrame)
+        }
+        const refresh = (): void => {
+            this.layoutRefreshFrame = null
+            const active = this.app.activeTab as any
+            if (typeof active?.layout === 'function') {
+                active.layout()
+            }
+            window.dispatchEvent(new Event('resize'))
+        }
+        this.layoutRefreshFrame = requestAnimationFrame(() => {
+            refresh()
+            setTimeout(refresh, 180)
+        })
+    }
+
     private actions (...children: HTMLElement[]): HTMLElement {
         const row = document.createElement('div')
         row.className = 'quick-shelf__actions'
@@ -996,16 +1094,73 @@ export class CommandWorkbenchService {
         this.style = document.createElement('style')
         this.style.textContent = `
             .quick-shelf, .quick-shelf * { box-sizing: border-box; }
+            body.command-workbench-docked app-root {
+                width: 100vw !important;
+                max-width: 100vw !important;
+                min-width: 0 !important;
+                overflow: hidden !important;
+            }
+            body.command-workbench-docked app-root > .content {
+                width: 100vw !important;
+                max-width: 100vw !important;
+                overflow: hidden !important;
+            }
+            body.command-workbench-docked app-root > .content > .tab-bar {
+                width: 100vw !important;
+                max-width: 100vw !important;
+            }
+            body.command-workbench-docked app-root > .content > .content {
+                width: calc(100vw - var(--command-workbench-width, 390px)) !important;
+                max-width: calc(100vw - var(--command-workbench-width, 390px)) !important;
+                min-width: 0 !important;
+                overflow: hidden !important;
+                transition: width .14s ease, max-width .14s ease;
+            }
+            body.command-workbench-docked app-root > .content > .content > .content-tab {
+                width: 100% !important;
+                max-width: 100% !important;
+                overflow: hidden !important;
+            }
+            body.command-workbench-docked tab-body,
+            body.command-workbench-docked split-tab,
+            body.command-workbench-docked base-terminal-tab,
+            body.command-workbench-docked .content,
+            body.command-workbench-docked .xterm,
+            body.command-workbench-docked .xterm-screen,
+            body.command-workbench-docked .xterm-viewport {
+                max-width: 100% !important;
+                overflow: hidden !important;
+            }
+            body.command-workbench-resizing,
+            body.command-workbench-resizing * {
+                cursor: col-resize !important;
+                user-select: none !important;
+            }
+            body.command-workbench-resizing app-root > .content > .content {
+                transition: none !important;
+            }
             .quick-shelf {
                 --shelf-width: 390px;
-                position: fixed; top: 42px; right: 10px; bottom: 10px; z-index: 10000;
+                position: fixed; top: 42px; right: 0; bottom: 0; z-index: 10000;
                 display: flex; width: min(var(--shelf-width), calc(100vw - 20px));
                 flex-direction: column; overflow: hidden;
                 container-type: inline-size;
-                border: 1px solid rgba(148, 163, 184, .25); border-radius: 10px;
-                color: #e5e7eb; background: rgba(12, 20, 34, .98);
-                box-shadow: 0 18px 52px rgba(0, 0, 0, .48);
+                border-left: 1px solid rgba(148, 163, 184, .28); border-radius: 0;
+                color: var(--theme-text-color, #e5e7eb); background: #0b1424;
+                box-shadow: -14px 0 30px rgba(0, 0, 0, .28);
                 font-family: Inter, "Segoe UI", sans-serif; -webkit-app-region: no-drag;
+            }
+            .quick-shelf__resize-handle {
+                position: absolute; top: 0; bottom: 0; left: -4px; z-index: 3;
+                width: 8px; cursor: col-resize; touch-action: none;
+            }
+            .quick-shelf__resize-handle::before {
+                content: ""; position: absolute; top: 0; bottom: 0; left: 3px;
+                width: 1px; background: rgba(148, 163, 184, .25);
+            }
+            .quick-shelf__resize-handle:hover::before,
+            body.command-workbench-resizing .quick-shelf__resize-handle::before {
+                left: 2px; width: 3px; background: #38bdf8;
             }
             .quick-shelf-toggle {
                 position: fixed; top: 50%; right: 0; z-index: 10000;

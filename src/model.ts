@@ -142,7 +142,7 @@ export function normalizeConfig (raw: any): CommandSidebarPluginConfig {
             version: 2,
             enabled: raw.enabled !== false,
             sidebarOpen: raw.sidebarOpen !== false,
-            sidebarWidth: Math.min(620, Math.max(320, Number(raw.sidebarWidth) || 390)),
+            sidebarWidth: Math.min(760, Math.max(300, Number(raw.sidebarWidth) || 390)),
             activeCategoryId: categories.some(category => category.id === raw.activeCategoryId)
                 ? raw.activeCategoryId
                 : categories[0].id,

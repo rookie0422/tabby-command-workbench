@@ -17,20 +17,8 @@ import { CONFIG_KEY } from './config'
                 启动时默认展开侧栏
             </label>
 
-            <label class="setting-column">
-                <span>侧栏宽度：{{ model.sidebarWidth }} px</span>
-                <input
-                    type="range"
-                    min="320"
-                    max="620"
-                    step="10"
-                    [(ngModel)]="model.sidebarWidth"
-                    (change)="save()"
-                >
-            </label>
-
             <p class="hint">
-                左键用于切换和执行；右键分类、按钮或命令可新增、编辑、复制和删除。
+                左键用于切换和执行；右键分类、按钮或命令可新增、编辑、复制和删除。拖动侧栏左边缘可调整宽度。
             </p>
         </div>
     `,
@@ -45,13 +33,6 @@ import { CONFIG_KEY } from './config'
         .setting-line {
             display: flex;
             align-items: center;
-            gap: 8px;
-        }
-
-        .setting-column {
-            display: flex;
-            max-width: 360px;
-            flex-direction: column;
             gap: 8px;
         }
 
@@ -75,7 +56,6 @@ export class CommandWorkbenchSettingsTabComponent {
         const target = (this.config.store as any)[CONFIG_KEY]
         target.enabled = this.model.enabled
         target.sidebarOpen = this.model.sidebarOpen
-        target.sidebarWidth = this.model.sidebarWidth
         this.config.save()
     }
 

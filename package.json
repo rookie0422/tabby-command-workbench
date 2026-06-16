@@ -1,6 +1,6 @@
 {
   "name": "tabby-command-workbench",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A scene-based command workbench with quick actions, reusable commands and persistent scratchpads for Tabby.",
   "keywords": [
     "tabby-plugin",
@@ -40,6 +40,7 @@
   "files": [
     "dist",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "license": "MIT",
