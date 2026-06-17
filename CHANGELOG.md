@@ -1,5 +1,23 @@
 # 更新日志
 
+## v1.1.1 - 2026-06-17
+
+### 修复
+
+- 增强右键菜单关闭和清理逻辑：记录监听器和计时器引用，在 `closeContextMenu` 中显式移除，避免事件泄漏。
+- 设置页 `save()` 现在通过 `normalizeConfig` 填充缺失字段后再写回 store，避免只更新两个字段导致配置不完整。
+- resize 处理增加 `pointercancel`、`blur` 和 `lostpointercapture` 清理路径，防止拖动异常中断时状态卡死。
+
+### 新增
+
+- 常用命令卡片现在支持显示 `description` 副标题，方便区分用途相近的命令。
+
+### 变更
+
+- 持久化时剥离 `tempSnippets` 字段，避免死数据写入配置存储。
+- 提取常量 `constants.ts` 和样式字符串 `styles.ts`，减少 service 文件中的魔数和内联 CSS。
+- 扩展测试覆盖：配置归一化边界、tempSnippets → scratchpad 迁移、sidebarWidth 范围钳位。
+
 ## v1.1.0 - 2026-06-16
 
 ### 新增
