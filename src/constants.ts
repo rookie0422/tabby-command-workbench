@@ -1,0 +1,8 @@
+export const DEFAULT_SIDEBAR_WIDTH = 390
+export const MIN_SIDEBAR_WIDTH = 300
+export const MAX_SIDEBAR_WIDTH = 760
+export const MIN_TERMINAL_WIDTH = 240
+export const RESIZE_SAVE_DELAY_MS = 250
+export const SCRATCH_SAVE_DELAY_MS = 250
+export const STATUS_VISIBLE_MS = 1800
+export const LAYOUT_REFRESH_DELAY_MS = 180

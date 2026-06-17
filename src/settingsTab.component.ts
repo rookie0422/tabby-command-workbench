@@ -2,6 +2,7 @@ import { Component } from '@angular/core'
 import { ConfigService } from 'tabby-core'
 import { CommandSidebarPluginConfig } from './types'
 import { CONFIG_KEY } from './config'
+import { normalizeConfig } from './model'
 
 @Component({
     selector: 'command-workbench-settings',
@@ -53,14 +54,17 @@ export class CommandWorkbenchSettingsTabComponent {
     }
 
     save (): void {
-        const target = (this.config.store as any)[CONFIG_KEY]
-        target.enabled = this.model.enabled
-        target.sidebarOpen = this.model.sidebarOpen
+        const store = this.config.store as any
+        if (!store[CONFIG_KEY]) {
+            store[CONFIG_KEY] = this.model
+        }
+        store[CONFIG_KEY].enabled = this.model.enabled
+        store[CONFIG_KEY].sidebarOpen = this.model.sidebarOpen
         this.config.save()
     }
 
     private getModel (): CommandSidebarPluginConfig {
         const store = this.config.store as any
-        return store[CONFIG_KEY]
+        return normalizeConfig(store[CONFIG_KEY])
     }
 }

@@ -6,6 +6,7 @@ import {
     QuickCategory,
     TempSnippet,
 } from './types'
+import { DEFAULT_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from './constants'
 
 const now = (): number => Date.now()
 
@@ -76,7 +77,7 @@ export function createDefaultConfig (): CommandSidebarPluginConfig {
         version: 2,
         enabled: true,
         sidebarOpen: true,
-        sidebarWidth: 390,
+        sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
         activeCategoryId: categories[0].id,
         categories,
     }
@@ -142,7 +143,7 @@ export function normalizeConfig (raw: any): CommandSidebarPluginConfig {
             version: 2,
             enabled: raw.enabled !== false,
             sidebarOpen: raw.sidebarOpen !== false,
-            sidebarWidth: Math.min(760, Math.max(300, Number(raw.sidebarWidth) || 390)),
+            sidebarWidth: Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, Number(raw.sidebarWidth) || DEFAULT_SIDEBAR_WIDTH)),
             activeCategoryId: categories.some(category => category.id === raw.activeCategoryId)
                 ? raw.activeCategoryId
                 : categories[0].id,
