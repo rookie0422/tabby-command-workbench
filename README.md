@@ -41,6 +41,12 @@ npm install tabby-command-workbench
 - macOS: `~/Library/Application Support/tabby/plugins`
 - Linux: `~/.config/tabby/plugins`
 
+## 平台兼容性
+
+插件基于 Tabby 插件 API 实现，设计上适用于 Windows、macOS 和 Linux。当前主要在 Windows 上进行日常验证；macOS 和 Linux 用户如果遇到布局、快捷键或终端粘贴行为差异，欢迎反馈 issue。
+
+不同平台、Shell 和终端前端对多行粘贴、快捷键拦截和终端焦点的处理可能略有差异。
+
 ## 使用
 
 - 左键场景 Tab：切换场景。
