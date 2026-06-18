@@ -910,12 +910,18 @@ export class CommandWorkbenchService {
     private applyDockState (model: CommandSidebarPluginConfig): void {
         const shouldDock = model.enabled && model.sidebarOpen
         document.body.classList.toggle('command-workbench-docked', shouldDock)
+        document.body.classList.toggle('command-workbench-tabs-vertical', shouldDock && this.isVerticalTabsLocation())
         if (shouldDock) {
             this.applyDockWidth(model.sidebarWidth)
         } else {
             document.body.style.removeProperty('--command-workbench-width')
         }
         this.scheduleLayoutRefresh()
+    }
+
+    private isVerticalTabsLocation (): boolean {
+        const location = (this.config.store as any)?.appearance?.tabsLocation
+        return location === 'left' || location === 'right'
     }
 
     private applyDockWidth (width: number): void {

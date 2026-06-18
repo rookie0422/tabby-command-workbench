@@ -6,21 +6,40 @@ export const QUICK_SHELF_STYLES = `
         min-width: 0 !important;
         overflow: hidden !important;
     }
-    body.command-workbench-docked app-root > .content {
+    body.command-workbench-docked:not(.command-workbench-tabs-vertical) app-root > .content {
         width: 100vw !important;
         max-width: 100vw !important;
         overflow: hidden !important;
     }
-    body.command-workbench-docked app-root > .content > .tab-bar {
+    body.command-workbench-docked:not(.command-workbench-tabs-vertical) app-root > .content > .tab-bar {
         width: 100vw !important;
         max-width: 100vw !important;
     }
-    body.command-workbench-docked app-root > .content > .content {
+    body.command-workbench-docked:not(.command-workbench-tabs-vertical) app-root > .content > .content {
         width: calc(100vw - var(--command-workbench-width, 390px)) !important;
         max-width: calc(100vw - var(--command-workbench-width, 390px)) !important;
         min-width: 0 !important;
         overflow: hidden !important;
         transition: width .14s ease, max-width .14s ease;
+    }
+    body.command-workbench-docked.command-workbench-tabs-vertical app-root > .content {
+        width: calc(100vw - var(--command-workbench-width, 390px)) !important;
+        max-width: calc(100vw - var(--command-workbench-width, 390px)) !important;
+        min-width: 0 !important;
+        overflow: hidden !important;
+        transition: width .14s ease, max-width .14s ease;
+    }
+    body.command-workbench-docked.command-workbench-tabs-vertical app-root > .content > .tab-bar {
+        width: auto !important;
+        max-width: 40vw !important;
+        flex: 0 0 auto !important;
+    }
+    body.command-workbench-docked.command-workbench-tabs-vertical app-root > .content > .content {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        flex: 1 1 auto !important;
+        overflow: hidden !important;
     }
     body.command-workbench-docked app-root > .content > .content > .content-tab {
         width: 100% !important;
@@ -43,6 +62,9 @@ export const QUICK_SHELF_STYLES = `
         user-select: none !important;
     }
     body.command-workbench-resizing app-root > .content > .content {
+        transition: none !important;
+    }
+    body.command-workbench-resizing.command-workbench-tabs-vertical app-root > .content {
         transition: none !important;
     }
     .quick-shelf {
