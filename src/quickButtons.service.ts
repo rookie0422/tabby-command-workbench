@@ -1196,8 +1196,8 @@ export class CommandWorkbenchService {
                 cancelable: true,
                 clipboardData: data,
             } as ClipboardEventInit)
-            const dispatched = target.dispatchEvent(event)
-            return !dispatched || event.defaultPrevented
+            target.dispatchEvent(event)
+            return true
         } catch {
             return false
         }
