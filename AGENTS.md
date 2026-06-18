@@ -11,6 +11,7 @@
 ## 关键文件
 
 - `src/quickButtons.service.ts`：侧栏 UI、命令执行、右键菜单、弹窗编辑、草稿区持久化和活动终端定位的核心实现。
+- `src/commandSequence.ts`：命令参数占位符、简单 delay 序列和危险命令扫描的纯逻辑。
 - `src/model.ts`：默认数据、配置归一化、旧配置到当前结构的数据整理。
 - `src/config.ts` 和 `src/configProvider.ts`：当前与旧版 Tabby 配置键、持久化配置选择、迁移支持。
 - `src/types.ts`：场景分类、快捷命令、常用命令、草稿区相关类型。

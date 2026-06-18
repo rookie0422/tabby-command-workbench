@@ -3,6 +3,14 @@ import { AppService, ConfigService, PlatformService, SplitTabComponent } from 't
 import { BaseTerminalTabComponent } from 'tabby-terminal'
 import * as yaml from 'js-yaml'
 import { createId, normalizeConfig } from './model'
+import {
+    extractTemplateParameters,
+    findDangerousCommands,
+    hasDangerousCommand,
+    parseCommandSequence,
+    renderTemplate,
+    SequenceStep,
+} from './commandSequence'
 import { CONFIG_KEY, LEGACY_CONFIG_KEY, selectPersistedConfig } from './config'
 import { QUICK_SHELF_STYLES } from './styles'
 import {
@@ -50,6 +58,11 @@ export class CommandWorkbenchService {
     private scratchSaveTimer: any = null
     private resizeSaveTimer: any = null
     private layoutRefreshFrame: number | null = null
+    private parameterModal: HTMLElement | null = null
+    private parameterHistory: Record<string, string> = {}
+    private sequenceRunning = false
+    private sequenceRunId = 0
+    private sessionDangerAccepted = new Set<string>()
     private readonly flushScratchSave = (): void => {
         if (this.scratchSaveTimer === null) {
             return
@@ -202,7 +215,14 @@ export class CommandWorkbenchService {
             queueMicrotask(() => this.focusTerminal())
         })
 
-        header.append(heading, close)
+        const actions = document.createElement('div')
+        actions.className = 'quick-shelf__header-actions'
+        if (this.sequenceRunning) {
+            actions.appendChild(this.button('停止', () => this.cancelSequence(), 'danger'))
+        }
+        actions.appendChild(close)
+
+        header.append(heading, actions)
         queueMicrotask(() => this.renderTarget())
         return header
     }
@@ -382,17 +402,29 @@ export class CommandWorkbenchService {
         content.className = 'quick-shelf__quick-grid'
 
         for (const command of category.quickButtons) {
+            const isSend = command.action === 'fill' && command.appendCR
+            const isDangerousSend = isSend && hasDangerousCommand(command.text)
             const card = document.createElement('article')
-            card.className = 'quick-shelf__quick-card'
+            card.className = [
+                'quick-shelf__quick-card',
+                isSend ? 'is-send' : '',
+                isDangerousSend ? 'is-dangerous' : '',
+            ].filter(Boolean).join(' ')
             card.style.setProperty('--item-color', command.color)
-            card.title = '左键执行，右键管理'
+            card.title = `${command.text}\n左键${command.action === 'copy' ? '复制' : isSend ? '发送并回车' : '填充到当前终端'}，右键管理`
             card.addEventListener('contextmenu', event => this.openItemContextMenu(event, category.id, command, 'quick'))
 
             const execute = document.createElement('button')
             execute.type = 'button'
             execute.className = 'quick-shelf__quick-execute'
-            execute.textContent = command.name
-            execute.title = command.text
+            const label = document.createElement('span')
+            label.className = 'quick-shelf__quick-label'
+            label.textContent = command.name
+            const mode = document.createElement('span')
+            mode.className = 'quick-shelf__quick-mode'
+            mode.textContent = command.action === 'copy' ? '复制' : isSend ? '发送' : '填充'
+            execute.append(label, mode)
+            execute.title = card.title
             execute.addEventListener('click', () => this.executeQuick(command))
             card.append(execute)
             content.appendChild(card)
@@ -545,8 +577,8 @@ export class CommandWorkbenchService {
             { label: '复制内容', action: () => this.copyText(item.text) },
             ...(kind === 'common'
                 ? [
-                    { label: '填充到当前终端', action: () => this.fillTerminal(item.text) },
-                    { label: '发送并回车', action: () => this.fillTerminal(item.text, true) },
+                    { label: '填充到当前终端', action: () => void this.fillTerminal(item.text) },
+                    { label: '发送并回车', action: () => void this.fillTerminal(item.text, true, { dangerKey: item.text }) },
                 ]
                 : []),
             {
@@ -714,22 +746,44 @@ export class CommandWorkbenchService {
             appendCR = document.createElement('input')
             appendCR.type = 'checkbox'
             appendCR.checked = (item as QuickButtonCommand).appendCR
-            checkbox.append(appendCR, document.createTextNode(' 填充后自动回车'))
+            checkbox.append(appendCR, document.createTextNode(' 填充后自动回车（直接执行）'))
             card.appendChild(checkbox)
         }
 
         card.appendChild(this.actions(
             this.button('保存', () => {
+                const nextText = text.input.value
+                const nextAction = action?.input.value === 'copy' ? 'copy' : 'fill'
+                const nextAppendCR = !!appendCR?.checked
+                let nextDangerAccepted = kind === 'quick'
+                    ? (item as QuickButtonCommand).dangerAccepted
+                    : false
+                if (kind === 'quick') {
+                    const quickItem = item as QuickButtonCommand
+                    const dangerousSend = nextAction === 'fill' && nextAppendCR && hasDangerousCommand(nextText)
+                    const sendChanged = nextText !== quickItem.text
+                        || nextAction !== quickItem.action
+                        || nextAppendCR !== quickItem.appendCR
+                    if (dangerousSend && (!quickItem.dangerAccepted || sendChanged)) {
+                        if (!window.confirm('此快捷按钮会直接发送并回车，且命中高风险命令。保存后点击按钮将不再重复确认，是否继续保存？')) {
+                            return
+                        }
+                        nextDangerAccepted = true
+                    } else if (!dangerousSend) {
+                        nextDangerAccepted = false
+                    }
+                }
                 this.updateItem(categoryId, item.id, kind, target => {
                     target.name = name.input.value.trim() || '未命名'
                     target.color = color.input.value
-                    target.text = text.input.value
+                    target.text = nextText
                     if (kind === 'common') {
                         ;(target as CommonCommand).description = description?.input.value || ''
                     }
                     if (kind === 'quick') {
-                        ;(target as QuickButtonCommand).action = action?.input.value === 'copy' ? 'copy' : 'fill'
-                        ;(target as QuickButtonCommand).appendCR = !!appendCR?.checked
+                        ;(target as QuickButtonCommand).action = nextAction
+                        ;(target as QuickButtonCommand).appendCR = nextAppendCR
+                        ;(target as QuickButtonCommand).dangerAccepted = nextDangerAccepted
                     }
                 })
                 this.editing = null
@@ -899,11 +953,28 @@ export class CommandWorkbenchService {
         if (command.action === 'copy') {
             this.copyText(command.text)
         } else {
-            this.fillTerminal(command.text, command.appendCR)
+            void this.fillTerminal(command.text, command.appendCR, {
+                dangerAccepted: command.dangerAccepted,
+                dangerKey: command.id,
+                onDangerAccepted: () => {
+                    command.dangerAccepted = true
+                    this.writeModelToConfig(this.getModel())
+                    void this.config.save()
+                    this.render()
+                },
+            })
         }
     }
 
-    private fillTerminal (text: string, appendCR = false): void {
+    private async fillTerminal (
+        text: string,
+        appendCR = false,
+        options: {
+            dangerAccepted?: boolean
+            dangerKey?: string
+            onDangerAccepted?: () => void
+        } = {},
+    ): Promise<void> {
         if (!text) {
             this.showStatus('命令内容为空', true)
             return
@@ -913,9 +984,187 @@ export class CommandWorkbenchService {
             this.showStatus('没有可用的活动终端', true)
             return
         }
-        terminal.sendInput(text + (appendCR ? '\r' : ''))
-        terminal.frontend?.focus()
-        this.showStatus(appendCR ? '已发送并回车' : '已填充到当前终端')
+        const values = await this.collectTemplateValues(text)
+        if (!values) {
+            return
+        }
+        const rendered = renderTemplate(text, values)
+        if (!appendCR) {
+            terminal.sendInput(rendered)
+            terminal.frontend?.focus()
+            this.showStatus('已填充到当前终端')
+            return
+        }
+
+        if (!this.confirmDangerousSend(rendered, options)) {
+            return
+        }
+
+        const parsed = parseCommandSequence(rendered)
+        if (parsed.errors.length) {
+            this.showStatus(parsed.errors[0], true)
+            return
+        }
+        if (!parsed.steps.length) {
+            this.showStatus('没有可发送的命令', true)
+            return
+        }
+        await this.runSequence(terminal, parsed.steps)
+    }
+
+    private async collectTemplateValues (text: string): Promise<Record<string, string> | null> {
+        const names = extractTemplateParameters(text)
+        if (!names.length) {
+            return {}
+        }
+        return this.openParameterModal(names)
+    }
+
+    private openParameterModal (names: string[]): Promise<Record<string, string> | null> {
+        this.closeParameterModal()
+        return new Promise(resolve => {
+            const backdrop = document.createElement('div')
+            backdrop.className = 'quick-shelf__modal-backdrop'
+            const dialog = document.createElement('div')
+            dialog.className = 'quick-shelf__modal'
+            dialog.setAttribute('role', 'dialog')
+            dialog.setAttribute('aria-modal', 'true')
+
+            const header = document.createElement('header')
+            header.className = 'quick-shelf__modal-header'
+            const heading = document.createElement('strong')
+            heading.textContent = '填写命令参数'
+
+            const finish = (values: Record<string, string> | null): void => {
+                this.closeParameterModal()
+                resolve(values)
+            }
+
+            const close = this.iconButton('×', '取消', () => finish(null))
+            header.append(heading, close)
+
+            const body = document.createElement('div')
+            body.className = 'quick-shelf__modal-body'
+            const card = document.createElement('article')
+            card.className = 'quick-shelf__item-card is-editing'
+            const fields = names.map(name => {
+                const field = this.input(name, this.parameterHistory[name] || '')
+                field.input.autocomplete = 'off'
+                field.input.addEventListener('keydown', event => {
+                    if (event.key === 'Enter') {
+                        event.preventDefault()
+                        submit()
+                    }
+                })
+                card.appendChild(field.wrapper)
+                return { name, input: field.input }
+            })
+
+            const submit = (): void => {
+                const values: Record<string, string> = {}
+                for (const field of fields) {
+                    values[field.name] = field.input.value
+                    this.parameterHistory[field.name] = field.input.value
+                }
+                finish(values)
+            }
+
+            card.appendChild(this.actions(
+                this.button('执行', submit, 'primary'),
+                this.button('取消', () => finish(null)),
+            ))
+            body.appendChild(card)
+            dialog.append(header, body)
+            backdrop.appendChild(dialog)
+            backdrop.addEventListener('pointerdown', event => {
+                if (event.target === backdrop) {
+                    finish(null)
+                }
+            })
+            document.body.appendChild(backdrop)
+            this.parameterModal = backdrop
+            queueMicrotask(() => fields[0]?.input.focus())
+        })
+    }
+
+    private closeParameterModal (): void {
+        this.parameterModal?.remove()
+        this.parameterModal = null
+    }
+
+    private confirmDangerousSend (
+        text: string,
+        options: {
+            dangerAccepted?: boolean
+            dangerKey?: string
+            onDangerAccepted?: () => void
+        },
+    ): boolean {
+        const matches = findDangerousCommands(text)
+        if (!matches.length) {
+            return true
+        }
+        const key = options.dangerKey || text
+        if (options.dangerAccepted || this.sessionDangerAccepted.has(key)) {
+            return true
+        }
+        const labels = matches.map(match => match.label).join('、')
+        if (!window.confirm(`此操作会直接发送并回车，命中高风险命令：${labels}。\n确认继续？`)) {
+            return false
+        }
+        this.sessionDangerAccepted.add(key)
+        options.onDangerAccepted?.()
+        return true
+    }
+
+    private async runSequence (
+        terminal: BaseTerminalTabComponent<any>,
+        steps: SequenceStep[],
+    ): Promise<void> {
+        if (this.sequenceRunning) {
+            this.showStatus('已有命令序列正在执行', true)
+            return
+        }
+        const runId = ++this.sequenceRunId
+        this.sequenceRunning = true
+        this.render()
+        let sent = 0
+        try {
+            for (const step of steps) {
+                if (runId !== this.sequenceRunId) {
+                    return
+                }
+                if (step.type === 'delay') {
+                    this.showStatus(`等待 ${step.ms}ms`)
+                    await this.sleep(step.ms)
+                    continue
+                }
+                terminal.sendInput(`${step.text}\r`)
+                sent += 1
+                await this.sleep(30)
+            }
+            terminal.frontend?.focus()
+            this.showStatus(sent > 1 ? `已发送 ${sent} 条命令` : '已发送并回车')
+        } finally {
+            if (runId === this.sequenceRunId) {
+                this.sequenceRunning = false
+                this.render()
+            }
+        }
+    }
+
+    private cancelSequence (): void {
+        if (!this.sequenceRunning) {
+            return
+        }
+        this.sequenceRunId += 1
+        this.sequenceRunning = false
+        this.showStatus('已停止命令序列')
+        this.render()
+    }
+
+    private sleep (ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms))
     }
 
     private copyText (text: string): void {
@@ -999,6 +1248,7 @@ export class CommandWorkbenchService {
                     color: '#22c55e',
                     action: 'fill',
                     appendCR: false,
+                    dangerAccepted: false,
                 })
             } else if (kind === 'common') {
                 category.commonCommands.unshift({

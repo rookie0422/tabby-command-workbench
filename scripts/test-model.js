@@ -40,8 +40,14 @@ Module._resolveFilename = function (request, parent, isMain, options) {
 }
 
 const model = require('../src/model.ts')
+const sequence = require('../src/commandSequence.ts')
 const { selectPersistedConfig } = require('../src/config.ts')
-const { MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH, DEFAULT_SIDEBAR_WIDTH } = require('../src/constants.ts')
+const {
+    MIN_SIDEBAR_WIDTH,
+    MAX_SIDEBAR_WIDTH,
+    DEFAULT_SIDEBAR_WIDTH,
+    MAX_SEQUENCE_DELAY_MS,
+} = require('../src/constants.ts')
 
 const mixedConfig = {
     quickButtons: [
@@ -83,6 +89,7 @@ assert.equal(normalizedMixed.activeCategoryId, 'custom-category')
 assert.equal(normalizedMixed.categories.length, 1)
 assert.equal(normalizedMixed.categories[0].quickButtons[0].id, 'saved-button')
 assert.equal(normalizedMixed.categories[0].scratchpad, 'persisted scratchpad')
+assert.equal(normalizedMixed.categories[0].quickButtons[0].dangerAccepted, false)
 
 const legacyOnly = model.normalizeConfig({
     quickButtons: mixedConfig.quickButtons,
@@ -207,3 +214,35 @@ const legacyOpen = model.normalizeConfig({ quickButtons: [], sidebarOpen: false 
 assert.equal(legacyOpen.sidebarOpen, false)
 
 console.log('P2-7 extended model tests passed')
+
+const params = sequence.extractTemplateParameters('adb connect {{ip}}\nadb -s {{ip}} shell\nssh {{user}}@{{host}}')
+assert.deepEqual(params, ['ip', 'user', 'host'])
+
+const rendered = sequence.renderTemplate('adb connect {{ip}}\nadb -s {{ip}} shell', { ip: '192.168.1.10:5555' })
+assert.equal(rendered, 'adb connect 192.168.1.10:5555\nadb -s 192.168.1.10:5555 shell')
+
+const parsed = sequence.parseCommandSequence('adb reboot bootloader\n{{delay:5s}}\nfastboot devices')
+assert.deepEqual(parsed.errors, [])
+assert.deepEqual(parsed.steps, [
+    { type: 'command', text: 'adb reboot bootloader' },
+    { type: 'delay', ms: 5000 },
+    { type: 'command', text: 'fastboot devices' },
+])
+
+const parsedMs = sequence.parseCommandSequence('echo before\n{{delay 250}}\necho after')
+assert.deepEqual(parsedMs.errors, [])
+assert.equal(parsedMs.steps[1].ms, 250)
+
+const invalidDelay = sequence.parseCommandSequence('{{delay:bad}}')
+assert.equal(invalidDelay.steps.length, 0)
+assert.equal(invalidDelay.errors.length, 1)
+
+const tooLongDelay = sequence.parseCommandSequence(`{{delay:${MAX_SEQUENCE_DELAY_MS + 1}}}`)
+assert.equal(tooLongDelay.errors.length, 1)
+
+assert.equal(sequence.hasDangerousCommand('adb reboot'), true)
+assert.equal(sequence.hasDangerousCommand('fastboot flash boot boot.img'), true)
+assert.equal(sequence.hasDangerousCommand('pm clear com.example.app'), true)
+assert.equal(sequence.hasDangerousCommand('echo harmless'), false)
+
+console.log('command template and sequence tests passed')

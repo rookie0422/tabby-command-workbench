@@ -10,6 +10,7 @@ export interface ShelfItem {
 export interface QuickButtonCommand extends ShelfItem {
     action: QuickCommandAction
     appendCR: boolean
+    dangerAccepted: boolean
 }
 
 export interface CommonCommand extends ShelfItem {

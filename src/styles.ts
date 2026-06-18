@@ -85,6 +85,7 @@ export const QUICK_SHELF_STYLES = `
     .quick-shelf__heading strong { font-size: 15px; }
     .quick-shelf__heading span { overflow: hidden; color: #94a3b8; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
     .quick-shelf__heading span.is-error { color: #fca5a5; }
+    .quick-shelf__header-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; }
     .quick-shelf__category-wrap {
         display: grid; grid-template-columns: minmax(0, 1fr) 34px; gap: 8px;
         padding: 9px 12px; border-bottom: 1px solid rgba(148, 163, 184, .16);
@@ -139,12 +140,27 @@ export const QUICK_SHELF_STYLES = `
         border: 1px solid color-mix(in srgb, var(--item-color) 45%, #334155);
         border-radius: 8px; background: #121d30;
     }
+    .quick-shelf__quick-card.is-send {
+        border-color: color-mix(in srgb, var(--item-color) 70%, #f59e0b);
+        background: #172033;
+    }
+    .quick-shelf__quick-card.is-dangerous {
+        border-color: #ef4444; box-shadow: inset 0 0 0 1px rgba(239, 68, 68, .25);
+    }
     .quick-shelf__quick-execute {
-        display: flex; width: 100%; min-height: 38px; padding: 5px 6px;
-        align-items: center; justify-content: center;
+        display: flex; width: 100%; min-height: 38px; padding: 4px 6px;
+        align-items: center; justify-content: center; flex-direction: column; gap: 1px;
         border: 0; color: #f8fafc; background: transparent; cursor: pointer;
         text-align: center; font-size: 11px; font-weight: 700; line-height: 1.2;
     }
+    .quick-shelf__quick-label {
+        display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .quick-shelf__quick-mode {
+        color: #94a3b8; font-size: 9px; font-weight: 600;
+    }
+    .quick-shelf__quick-card.is-send .quick-shelf__quick-mode { color: #fbbf24; }
+    .quick-shelf__quick-card.is-dangerous .quick-shelf__quick-mode { color: #fca5a5; }
     .quick-shelf__list {
         display: flex; max-height: 190px; padding-right: 2px;
         flex-direction: column; gap: 5px; overflow-y: auto;

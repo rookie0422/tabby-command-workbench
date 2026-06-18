@@ -6,3 +6,5 @@ export const RESIZE_SAVE_DELAY_MS = 250
 export const SCRATCH_SAVE_DELAY_MS = 250
 export const STATUS_VISIBLE_MS = 1800
 export const LAYOUT_REFRESH_DELAY_MS = 180
+export const MAX_SEQUENCE_DELAY_MS = 60000
+export const MAX_SEQUENCE_STEPS = 40

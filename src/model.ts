@@ -21,7 +21,7 @@ function quick (
     color: string,
     appendCR = false,
 ): QuickButtonCommand {
-    return { id, name, text, color, appendCR, action: 'fill' }
+    return { id, name, text, color, appendCR, action: 'fill', dangerAccepted: false }
 }
 
 function common (
@@ -91,6 +91,7 @@ function normalizeQuickButton (item: Partial<QuickButtonCommand>, index: number)
         color: item.color || '#22c55e',
         action: item.action === 'copy' ? 'copy' : 'fill',
         appendCR: !!item.appendCR,
+        dangerAccepted: !!item.dangerAccepted,
     }
 }
 
