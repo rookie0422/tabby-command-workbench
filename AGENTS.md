@@ -5,7 +5,7 @@
 ## 项目形态
 
 - 产品：`tabby-command-workbench`，一个 Tabby 右侧命令工作台，用于按场景组织快捷操作、可复用命令和持久草稿区。
-- 用户可见行为、安装、开发和发布命令先看 [README.md](README.md)。
+- 用户可见行为和安装方式先看 [README.md](README.md)；开发与发布规则以本文件和仓库脚本为准。
 - 修改产品行为、迁移逻辑、配置持久化、侧栏布局、右键菜单或 Tabby 终端交互时，阅读 [docs/project-context.md](docs/project-context.md)。
 
 ## 关键文件

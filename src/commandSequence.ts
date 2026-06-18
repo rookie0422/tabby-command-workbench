@@ -60,6 +60,22 @@ export function renderTemplate (text: string, values: Record<string, string>): s
     return text.replace(PARAMETER_PATTERN, (_, name: string) => values[name] ?? '')
 }
 
+export function stripDelaySteps (text: string): string {
+    const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+    return normalized
+        .split('\n')
+        .filter(line => !DELAY_PATTERN.test(line.trim()))
+        .join('\n')
+}
+
+export function hasDelayStep (text: string): boolean {
+    return text
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .split('\n')
+        .some(line => DELAY_PATTERN.test(line.trim()))
+}
+
 export function parseCommandSequence (text: string): SequenceParseResult {
     const steps: SequenceStep[] = []
     const errors: string[] = []

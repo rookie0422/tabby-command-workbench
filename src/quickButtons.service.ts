@@ -6,10 +6,12 @@ import { createId, normalizeConfig } from './model'
 import {
     extractTemplateParameters,
     findDangerousCommands,
+    hasDelayStep,
     hasDangerousCommand,
     parseCommandSequence,
     renderTemplate,
     SequenceStep,
+    stripDelaySteps,
 } from './commandSequence'
 import { CONFIG_KEY, LEGACY_CONFIG_KEY, selectPersistedConfig } from './config'
 import { QUICK_SHELF_STYLES } from './styles'
@@ -735,17 +737,38 @@ export class CommandWorkbenchService {
             card.appendChild(description.wrapper)
         }
         if (kind === 'quick') {
+            const itemHasDelay = hasDelayStep(item.text)
             action = this.select('点击行为', [
                 { value: 'fill', label: '填充到当前终端' },
                 { value: 'copy', label: '复制到剪贴板' },
-            ], (item as QuickButtonCommand).action)
+            ], itemHasDelay ? 'fill' : (item as QuickButtonCommand).action)
             card.appendChild(action.wrapper)
+
+            const templateTools = document.createElement('div')
+            templateTools.className = 'quick-shelf__template-tools'
+            templateTools.append(
+                this.button('添加自定义参数 {{param}}', () => this.insertCommandTemplate(text.input, '{{param}}')),
+                this.button('添加延时执行 {{delay:2000}}', () => {
+                    this.insertCommandTemplate(text.input, '{{delay:2000}}')
+                    if (action) {
+                        action.input.value = 'fill'
+                    }
+                    if (appendCR) {
+                        appendCR.checked = true
+                    }
+                }),
+            )
+            const hint = document.createElement('small')
+            hint.className = 'quick-shelf__hint'
+            hint.textContent = '参数会在执行前弹窗填写；delay 只在自动回车（直接执行）时生效。'
+            templateTools.appendChild(hint)
+            card.appendChild(templateTools)
 
             const checkbox = document.createElement('label')
             checkbox.className = 'quick-shelf__checkbox'
             appendCR = document.createElement('input')
             appendCR.type = 'checkbox'
-            appendCR.checked = (item as QuickButtonCommand).appendCR
+            appendCR.checked = itemHasDelay || (item as QuickButtonCommand).appendCR
             checkbox.append(appendCR, document.createTextNode(' 填充后自动回车（直接执行）'))
             card.appendChild(checkbox)
         }
@@ -753,8 +776,11 @@ export class CommandWorkbenchService {
         card.appendChild(this.actions(
             this.button('保存', () => {
                 const nextText = text.input.value
-                const nextAction = action?.input.value === 'copy' ? 'copy' : 'fill'
-                const nextAppendCR = !!appendCR?.checked
+                const hasDelay = hasDelayStep(nextText)
+                const nextAction = hasDelay
+                    ? 'fill'
+                    : action?.input.value === 'copy' ? 'copy' : 'fill'
+                const nextAppendCR = hasDelay || !!appendCR?.checked
                 let nextDangerAccepted = kind === 'quick'
                     ? (item as QuickButtonCommand).dangerAccepted
                     : false
@@ -825,6 +851,20 @@ export class CommandWorkbenchService {
         this.protectTextShortcuts(input)
         wrapper.appendChild(input)
         return { wrapper, input }
+    }
+
+    private insertCommandTemplate (input: HTMLTextAreaElement, template: string): void {
+        const start = input.selectionStart ?? input.value.length
+        const end = input.selectionEnd ?? start
+        let insert = template
+        if (template.startsWith('{{delay:')) {
+            const before = input.value.slice(0, start)
+            const after = input.value.slice(end)
+            insert = `${before && !before.endsWith('\n') ? '\n' : ''}${template}${after && !after.startsWith('\n') ? '\n' : ''}`
+        }
+        input.setRangeText(insert, start, end, 'end')
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+        input.focus()
     }
 
     private select (
@@ -990,14 +1030,15 @@ export class CommandWorkbenchService {
         }
         const rendered = renderTemplate(text, values)
         if (!appendCR) {
-            if (this.isMultiline(rendered) && await this.pasteTextIntoTerminal(terminal, rendered)) {
+            const fillText = stripDelaySteps(rendered)
+            if (this.isMultiline(fillText) && await this.pasteTextIntoTerminal(terminal, fillText)) {
                 terminal.frontend?.focus()
                 this.showStatus('已通过粘贴填充多行内容')
                 return
             }
-            terminal.sendInput(rendered)
+            terminal.sendInput(fillText)
             terminal.frontend?.focus()
-            this.showStatus(this.isMultiline(rendered) ? '已填充多行内容' : '已填充到当前终端')
+            this.showStatus(this.isMultiline(fillText) ? '已填充多行内容' : '已填充到当前终端')
             return
         }
 

@@ -221,6 +221,11 @@ assert.deepEqual(params, ['ip', 'user', 'host'])
 const rendered = sequence.renderTemplate('adb connect {{ip}}\nadb -s {{ip}} shell', { ip: '192.168.1.10:5555' })
 assert.equal(rendered, 'adb connect 192.168.1.10:5555\nadb -s 192.168.1.10:5555 shell')
 
+const fillText = sequence.stripDelaySteps('adb connect {{ip}}\n{{delay:2000}}\nadb -s {{ip}} shell')
+assert.equal(fillText, 'adb connect {{ip}}\nadb -s {{ip}} shell')
+assert.equal(sequence.hasDelayStep('echo before\n{{delay:2s}}\necho after'), true)
+assert.equal(sequence.hasDelayStep('echo "{{delay:2s}}"'), false)
+
 const parsed = sequence.parseCommandSequence('adb reboot bootloader\n{{delay:5s}}\nfastboot devices')
 assert.deepEqual(parsed.errors, [])
 assert.deepEqual(parsed.steps, [

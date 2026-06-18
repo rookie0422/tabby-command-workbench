@@ -206,6 +206,8 @@ export const QUICK_SHELF_STYLES = `
     .quick-shelf__button.is-primary { color: #052e16; border-color: #22c55e; background: #22c55e; font-weight: 700; }
     .quick-shelf__button.is-danger { color: #fecaca; border-color: rgba(239, 68, 68, .55); background: rgba(127, 29, 29, .55); }
     .quick-shelf__icon-button { min-width: 29px; padding: 3px 7px; font-size: 14px; line-height: 1; }
+    .quick-shelf__template-tools { display: flex; flex-wrap: wrap; gap: 6px; }
+    .quick-shelf__template-tools .quick-shelf__hint { flex: 1 0 100%; color: #94a3b8; font-size: 11px; line-height: 1.45; }
     .quick-shelf__field { display: flex; min-width: 0; flex-direction: column; gap: 4px; color: #aebbd0; font-size: 10px; }
     .quick-shelf__field input, .quick-shelf__field textarea, .quick-shelf__field select {
         width: 100%; min-height: 32px; padding: 6px 8px;
