@@ -56,10 +56,20 @@ export class CommandWorkbenchSettingsTabComponent {
     save (): void {
         const store = this.config.store as any
         if (!store[CONFIG_KEY]) {
-            store[CONFIG_KEY] = this.model
+            store[CONFIG_KEY] = {}
         }
-        store[CONFIG_KEY].enabled = this.model.enabled
-        store[CONFIG_KEY].sidebarOpen = this.model.sidebarOpen
+        const normalized = normalizeConfig(store[CONFIG_KEY])
+        normalized.enabled = this.model.enabled
+        normalized.sidebarOpen = this.model.sidebarOpen
+        this.model = normalized
+
+        const target = store[CONFIG_KEY]
+        target.version = normalized.version
+        target.enabled = normalized.enabled
+        target.sidebarOpen = normalized.sidebarOpen
+        target.sidebarWidth = normalized.sidebarWidth
+        target.activeCategoryId = normalized.activeCategoryId
+        target.categories = normalized.categories.map(({ tempSnippets: _, ...category }) => category)
         this.config.save()
     }
 
