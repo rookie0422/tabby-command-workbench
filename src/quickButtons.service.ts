@@ -990,9 +990,14 @@ export class CommandWorkbenchService {
         }
         const rendered = renderTemplate(text, values)
         if (!appendCR) {
+            if (this.isMultiline(rendered) && await this.pasteTextIntoTerminal(terminal, rendered)) {
+                terminal.frontend?.focus()
+                this.showStatus('已通过粘贴填充多行内容')
+                return
+            }
             terminal.sendInput(rendered)
             terminal.frontend?.focus()
-            this.showStatus('已填充到当前终端')
+            this.showStatus(this.isMultiline(rendered) ? '已填充多行内容' : '已填充到当前终端')
             return
         }
 
@@ -1165,6 +1170,54 @@ export class CommandWorkbenchService {
 
     private sleep (ms: number): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, ms))
+    }
+
+    private isMultiline (text: string): boolean {
+        return /\r|\n/.test(text)
+    }
+
+    private async pasteTextIntoTerminal (
+        terminal: BaseTerminalTabComponent<any>,
+        text: string,
+    ): Promise<boolean> {
+        terminal.frontend?.focus()
+        await this.sleep(0)
+        const target = this.findTerminalPasteTarget(terminal)
+        if (!target) {
+            return false
+        }
+        const data = this.createClipboardData(text)
+        if (!data) {
+            return false
+        }
+        try {
+            const event = new ClipboardEvent('paste', {
+                bubbles: true,
+                cancelable: true,
+                clipboardData: data,
+            } as ClipboardEventInit)
+            const dispatched = target.dispatchEvent(event)
+            return !dispatched || event.defaultPrevented
+        } catch {
+            return false
+        }
+    }
+
+    private findTerminalPasteTarget (terminal: BaseTerminalTabComponent<any>): HTMLElement | null {
+        const root = terminal.element?.nativeElement as HTMLElement | undefined
+        return root?.querySelector<HTMLElement>('.xterm-helper-textarea')
+            || root?.querySelector<HTMLElement>('textarea')
+            || document.activeElement as HTMLElement | null
+    }
+
+    private createClipboardData (text: string): DataTransfer | null {
+        try {
+            const data = new DataTransfer()
+            data.setData('text/plain', text)
+            return data
+        } catch {
+            return null
+        }
     }
 
     private copyText (text: string): void {
