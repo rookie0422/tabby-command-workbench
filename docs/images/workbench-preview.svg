@@ -1,0 +1,50 @@
+<svg width="1280" height="720" viewBox="0 0 1280 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="720" fill="#08111f"/>
+  <rect x="32" y="32" width="780" height="656" rx="10" fill="#0d1728" stroke="#23324a"/>
+  <rect x="32" y="32" width="780" height="42" rx="10" fill="#111c2e"/>
+  <circle cx="58" cy="53" r="6" fill="#ef4444"/>
+  <circle cx="78" cy="53" r="6" fill="#f59e0b"/>
+  <circle cx="98" cy="53" r="6" fill="#22c55e"/>
+  <text x="54" y="112" fill="#6ee7b7" font-family="Consolas, monospace" font-size="20">$ adb devices</text>
+  <text x="54" y="150" fill="#cbd5e1" font-family="Consolas, monospace" font-size="18">List of devices attached</text>
+  <text x="54" y="182" fill="#cbd5e1" font-family="Consolas, monospace" font-size="18">192.168.1.10:5555    device</text>
+  <text x="54" y="238" fill="#6ee7b7" font-family="Consolas, monospace" font-size="20">$ fastboot devices</text>
+  <text x="54" y="276" fill="#94a3b8" font-family="Consolas, monospace" font-size="18">waiting for device...</text>
+  <rect x="842" y="32" width="406" height="656" rx="0" fill="#0b1424" stroke="#334155"/>
+  <rect x="842" y="32" width="406" height="58" fill="#101a2b"/>
+  <text x="866" y="64" fill="#f8fafc" font-family="Segoe UI, sans-serif" font-size="20" font-weight="700">Command Workbench</text>
+  <text x="866" y="83" fill="#94a3b8" font-family="Segoe UI, sans-serif" font-size="13">目标：当前终端</text>
+  <rect x="866" y="110" width="74" height="34" rx="17" fill="#182338" stroke="#38bdf8"/>
+  <text x="888" y="132" fill="#f8fafc" font-family="Segoe UI, sans-serif" font-size="14">ADB</text>
+  <rect x="950" y="110" width="88" height="34" rx="17" fill="#182338" stroke="#334155"/>
+  <text x="972" y="132" fill="#cbd5e1" font-family="Segoe UI, sans-serif" font-size="14">Linux</text>
+  <rect x="1048" y="110" width="92" height="34" rx="17" fill="#182338" stroke="#334155"/>
+  <text x="1069" y="132" fill="#cbd5e1" font-family="Segoe UI, sans-serif" font-size="14">串口</text>
+  <text x="866" y="180" fill="#f8fafc" font-family="Segoe UI, sans-serif" font-size="16" font-weight="700">快捷命令按钮</text>
+  <rect x="866" y="196" width="86" height="48" rx="8" fill="#121d30" stroke="#38bdf8"/>
+  <text x="889" y="219" fill="#f8fafc" font-family="Segoe UI, sans-serif" font-size="13" font-weight="700">设备列表</text>
+  <text x="898" y="236" fill="#fbbf24" font-family="Segoe UI, sans-serif" font-size="10">发送</text>
+  <rect x="962" y="196" width="86" height="48" rx="8" fill="#121d30" stroke="#22c55e"/>
+  <text x="987" y="219" fill="#f8fafc" font-family="Segoe UI, sans-serif" font-size="13" font-weight="700">Shell</text>
+  <text x="994" y="236" fill="#fbbf24" font-family="Segoe UI, sans-serif" font-size="10">发送</text>
+  <rect x="1058" y="196" width="86" height="48" rx="8" fill="#172033" stroke="#ef4444"/>
+  <text x="1081" y="219" fill="#f8fafc" font-family="Segoe UI, sans-serif" font-size="13" font-weight="700">重启</text>
+  <text x="1090" y="236" fill="#fca5a5" font-family="Segoe UI, sans-serif" font-size="10">发送</text>
+  <rect x="1154" y="196" width="66" height="48" rx="8" fill="#121d30" stroke="#8b5cf6"/>
+  <text x="1174" y="219" fill="#f8fafc" font-family="Segoe UI, sans-serif" font-size="13" font-weight="700">复制</text>
+  <text x="1175" y="236" fill="#94a3b8" font-family="Segoe UI, sans-serif" font-size="10">复制</text>
+  <text x="866" y="285" fill="#f8fafc" font-family="Segoe UI, sans-serif" font-size="16" font-weight="700">常用命令</text>
+  <rect x="866" y="302" width="354" height="54" rx="8" fill="#111b2c" stroke="#334155"/>
+  <rect x="866" y="302" width="4" height="54" fill="#f59e0b"/>
+  <text x="884" y="326" fill="#f8fafc" font-family="Consolas, monospace" font-size="14">adb logcat</text>
+  <text x="884" y="344" fill="#94a3b8" font-family="Segoe UI, sans-serif" font-size="12">日志查看</text>
+  <rect x="866" y="366" width="354" height="54" rx="8" fill="#111b2c" stroke="#334155"/>
+  <rect x="866" y="366" width="4" height="54" fill="#8b5cf6"/>
+  <text x="884" y="390" fill="#f8fafc" font-family="Consolas, monospace" font-size="14">adb shell pm list packages</text>
+  <text x="884" y="408" fill="#94a3b8" font-family="Segoe UI, sans-serif" font-size="12">包名排查</text>
+  <text x="866" y="462" fill="#f8fafc" font-family="Segoe UI, sans-serif" font-size="16" font-weight="700">临时复制区</text>
+  <rect x="866" y="478" width="354" height="170" rx="8" fill="#0b1424" stroke="#334155"/>
+  <text x="886" y="510" fill="#94a3b8" font-family="Consolas, monospace" font-size="14">adb connect {{ip}}</text>
+  <text x="886" y="538" fill="#94a3b8" font-family="Consolas, monospace" font-size="14">{{delay:2000}}</text>
+  <text x="886" y="566" fill="#94a3b8" font-family="Consolas, monospace" font-size="14">adb -s {{ip}} shell</text>
+</svg>
