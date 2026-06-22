@@ -302,7 +302,7 @@ export class CommandWorkbenchService {
     private createCategoryBar (model: CommandSidebarPluginConfig): HTMLElement {
         const wrapper = document.createElement('div')
         wrapper.className = 'quick-shelf__category-wrap'
-        wrapper.title = '左键切换分类，右键管理分类'
+        wrapper.title = '拖动分类标签可调整顺序，左键切换，右键管理'
         wrapper.addEventListener('contextmenu', event => {
             if (event.target === wrapper || event.target === tabs) {
                 this.openContextMenu(event, [
@@ -313,13 +313,129 @@ export class CommandWorkbenchService {
 
         const tabs = document.createElement('div')
         tabs.className = 'quick-shelf__categories'
+
+        let dragSession: {
+            source: HTMLElement
+            initialOrder: string[]
+            dropped: boolean
+        } | null = null
+        let suppressedClickCategoryId: string | null = null
+        let suppressedClickTimer: number | null = null
+        const reorderAnimations = new WeakMap<HTMLElement, Animation>()
+
+        const categoryButtons = (): HTMLElement[] => Array.from(
+            tabs.querySelectorAll<HTMLElement>('.quick-shelf__category'),
+        )
+        const orderFromDOM = (): string[] => categoryButtons().map(btn => btn.dataset.categoryId!)
+        const sameOrder = (left: string[], right: string[]): boolean => (
+            left.length === right.length && left.every((id, index) => id === right[index])
+        )
+        const animateReorder = (reorder: () => void, excluded?: HTMLElement): void => {
+            const buttons = categoryButtons()
+            const previousPositions = new Map(buttons.map(btn => [btn, btn.getBoundingClientRect()]))
+            for (const button of buttons) {
+                reorderAnimations.get(button)?.cancel()
+            }
+
+            reorder()
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                return
+            }
+
+            for (const button of buttons) {
+                if (button === excluded) {
+                    continue
+                }
+                const previous = previousPositions.get(button)
+                const current = button.getBoundingClientRect()
+                const deltaX = previous ? previous.left - current.left : 0
+                if (Math.abs(deltaX) < 0.5) {
+                    continue
+                }
+                const animation = button.animate(
+                    [
+                        { transform: `translateX(${deltaX}px)` },
+                        { transform: 'translateX(0)' },
+                    ],
+                    { duration: 170, easing: 'cubic-bezier(.2, 0, 0, 1)' },
+                )
+                reorderAnimations.set(button, animation)
+                const cleanup = (): void => {
+                    if (reorderAnimations.get(button) === animation) {
+                        reorderAnimations.delete(button)
+                    }
+                }
+                animation.addEventListener('finish', cleanup, { once: true })
+                animation.addEventListener('cancel', cleanup, { once: true })
+            }
+        }
+        const restoreOrder = (orderedIds: string[]): void => {
+            if (sameOrder(orderFromDOM(), orderedIds)) {
+                return
+            }
+            const lookup = new Map(categoryButtons().map(button => [button.dataset.categoryId!, button]))
+            animateReorder(() => {
+                const fragment = document.createDocumentFragment()
+                for (const id of orderedIds) {
+                    const button = lookup.get(id)
+                    if (button) {
+                        fragment.appendChild(button)
+                    }
+                }
+                tabs.appendChild(fragment)
+            })
+        }
+        const suppressTrailingClick = (categoryId: string): void => {
+            suppressedClickCategoryId = categoryId
+            if (suppressedClickTimer !== null) {
+                clearTimeout(suppressedClickTimer)
+            }
+            suppressedClickTimer = window.setTimeout(() => {
+                suppressedClickCategoryId = null
+                suppressedClickTimer = null
+            }, 0)
+        }
+
         for (const category of model.categories) {
             const button = document.createElement('button')
             button.type = 'button'
             button.className = `quick-shelf__category ${category.id === model.activeCategoryId ? 'is-active' : ''}`
             button.style.setProperty('--category-color', category.color)
             button.textContent = category.name
+            button.draggable = true
+            button.dataset.categoryId = category.id
+
+            button.addEventListener('dragstart', event => {
+                dragSession = {
+                    source: button,
+                    initialOrder: orderFromDOM(),
+                    dropped: false,
+                }
+                button.classList.add('is-dragging')
+                event.dataTransfer!.effectAllowed = 'move'
+                event.dataTransfer!.setData('text/plain', category.id)
+            })
+
+            button.addEventListener('dragend', () => {
+                button.classList.remove('is-dragging')
+                const session = dragSession
+                if (!session || session.source !== button) {
+                    return
+                }
+                if (!session.dropped) {
+                    restoreOrder(session.initialOrder)
+                }
+                dragSession = null
+                suppressTrailingClick(category.id)
+            })
+
             button.addEventListener('click', event => {
+                if (suppressedClickCategoryId === category.id) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    suppressedClickCategoryId = null
+                    return
+                }
                 event.preventDefault()
                 event.stopPropagation()
                 this.editing = null
@@ -328,6 +444,7 @@ export class CommandWorkbenchService {
                     next.activeCategoryId = category.id
                 })
             })
+
             button.addEventListener('contextmenu', event => {
                 this.openContextMenu(event, [
                     {
@@ -350,6 +467,56 @@ export class CommandWorkbenchService {
             })
             tabs.appendChild(button)
         }
+
+        const commitOrderFromDOM = (): void => {
+            const orderedIds = orderFromDOM()
+            const currentModel = this.getModel()
+            const currentIds = currentModel.categories.map(category => category.id)
+            if (sameOrder(orderedIds, currentIds)) return
+
+            const lookup = new Map(currentModel.categories.map(category => [category.id, category]))
+            const orderedCategories = orderedIds.map(id => lookup.get(id))
+            if (orderedCategories.some(category => !category)) return
+
+            currentModel.categories = orderedCategories as QuickCategory[]
+            this.writeModelToConfig(currentModel)
+            void this.config.save()
+        }
+
+        tabs.addEventListener('dragover', event => {
+            const session = dragSession
+            if (!session) return
+
+            event.preventDefault()
+            event.dataTransfer!.dropEffect = 'move'
+
+            const dragging = session.source
+
+            const siblings = Array.from(
+                tabs.querySelectorAll<HTMLElement>('.quick-shelf__category:not(.is-dragging)'),
+            )
+            const anchor = siblings.find(sib => {
+                const rect = sib.getBoundingClientRect()
+                return event.clientX < rect.left + rect.width / 2
+            })
+
+            if (anchor) {
+                if (dragging.nextElementSibling === anchor) return
+                animateReorder(() => tabs.insertBefore(dragging, anchor), dragging)
+            } else {
+                if (tabs.lastElementChild === dragging) return
+                animateReorder(() => tabs.appendChild(dragging), dragging)
+            }
+        })
+
+        tabs.addEventListener('drop', event => {
+            const session = dragSession
+            if (!session) return
+
+            event.preventDefault()
+            session.dropped = true
+            commitOrderFromDOM()
+        })
 
         const menu = this.iconButton('⋯', '分类管理', () => {
             const rect = menu.getBoundingClientRect()

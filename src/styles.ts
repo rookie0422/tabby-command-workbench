@@ -116,12 +116,15 @@ export const QUICK_SHELF_STYLES = `
     .quick-shelf__category {
         position: relative; flex: 0 0 auto; min-height: 36px; padding: 6px 13px;
         border: 1px solid rgba(148, 163, 184, .22); border-radius: 999px;
-        color: #cbd5e1; background: #182338; cursor: pointer;
+        color: #cbd5e1; background: #182338; cursor: grab;
+        user-select: none; -webkit-user-select: none;
+        transition: opacity .12s ease, border-color .12s ease, background-color .12s ease;
     }
     .quick-shelf__category.is-active {
         color: #fff; border-color: var(--category-color);
         box-shadow: inset 0 -3px 0 var(--category-color);
     }
+    .quick-shelf__category.is-dragging { z-index: 1; opacity: .3; cursor: grabbing; }
     .quick-shelf__category-editor {
         display: grid; grid-template-columns: minmax(0, 1fr) 74px; gap: 8px;
         padding: 10px 12px; border-bottom: 1px solid rgba(148, 163, 184, .16);
