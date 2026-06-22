@@ -41,6 +41,7 @@ Module._resolveFilename = function (request, parent, isMain, options) {
 
 const model = require('../src/model.ts')
 const sequence = require('../src/commandSequence.ts')
+const sortable = require('../src/sortableGeometry.ts')
 const { selectPersistedConfig } = require('../src/config.ts')
 const {
     MIN_SIDEBAR_WIDTH,
@@ -251,3 +252,201 @@ assert.equal(sequence.hasDangerousCommand('pm clear com.example.app'), true)
 assert.equal(sequence.hasDangerousCommand('echo harmless'), false)
 
 console.log('command template and sequence tests passed')
+
+const rect = (left, top, width, height) => ({
+    left,
+    top,
+    right: left + width,
+    bottom: top + height,
+    width,
+    height,
+})
+
+// Directional edge probes must stay reachable when source and target sizes differ.
+const longAtLeft = rect(0, 0, 100, 36)
+const shortFirst = rect(0, 0, 40, 36)
+const leftProbe = sortable.getDirectionalSortProbe(longAtLeft, 'horizontal', -10, 0)
+assert.equal(sortable.findSortAnchorIndex([shortFirst], 'horizontal', leftProbe), 0)
+
+const longAtRight = rect(200, 0, 100, 36)
+const shortLast = rect(260, 0, 40, 36)
+const rightProbe = sortable.getDirectionalSortProbe(longAtRight, 'horizontal', 10, 0)
+assert.equal(sortable.findSortAnchorIndex([shortLast], 'horizontal', rightProbe), -1)
+
+// Equal-size grids must still be able to reach both ends despite hysteresis.
+const gridAtLeft = rect(0, 0, 80, 38)
+const gridFirst = rect(0, 0, 80, 38)
+assert.equal(
+    sortable.findSortAnchorIndex(
+        [gridFirst],
+        'grid',
+        sortable.getDirectionalSortProbe(gridAtLeft, 'grid', -8, 0),
+    ),
+    0,
+)
+const gridAtRight = rect(220, 0, 80, 38)
+const gridLast = rect(220, 0, 80, 38)
+assert.equal(
+    sortable.findSortAnchorIndex(
+        [gridLast],
+        'grid',
+        sortable.getDirectionalSortProbe(gridAtRight, 'grid', 8, 0),
+    ),
+    1,
+)
+
+// Vertical lists use the leading/trailing edge as well.
+const tallAtTop = rect(0, 0, 200, 80)
+const shortTop = rect(0, 0, 200, 30)
+assert.equal(
+    sortable.findSortAnchorIndex(
+        [shortTop],
+        'vertical',
+        sortable.getDirectionalSortProbe(tallAtTop, 'vertical', 0, -8),
+    ),
+    0,
+)
+const tallAtBottom = rect(0, 120, 200, 80)
+const shortBottom = rect(0, 170, 200, 30)
+assert.equal(
+    sortable.findSortAnchorIndex(
+        [shortBottom],
+        'vertical',
+        sortable.getDirectionalSortProbe(tallAtBottom, 'vertical', 0, 8),
+    ),
+    -1,
+)
+
+// Hysteresis delays a swap by 6px without making the target unreachable.
+const target = rect(80, 0, 30, 36) // center x = 95
+assert.equal(
+    sortable.findSortAnchorIndex(
+        [target],
+        'horizontal',
+        sortable.getDirectionalSortProbe(rect(14, 0, 80, 36), 'horizontal', 2, 0),
+    ),
+    0,
+)
+assert.equal(
+    sortable.findSortAnchorIndex(
+        [target],
+        'horizontal',
+        sortable.getDirectionalSortProbe(rect(22, 0, 80, 36), 'horizontal', 2, 0),
+    ),
+    -1,
+)
+
+// Boundary reachability holds across practical source/target size combinations.
+for (const sourceWidth of [28, 40, 80, 140]) {
+    for (const targetWidth of [20, 40, 100]) {
+        const sourceAtStart = rect(0, 0, sourceWidth, 36)
+        const targetAtStart = rect(0, 0, targetWidth, 36)
+        assert.equal(
+            sortable.findSortAnchorIndex(
+                [targetAtStart],
+                'horizontal',
+                sortable.getDirectionalSortProbe(sourceAtStart, 'horizontal', -1, 0),
+            ),
+            0,
+        )
+
+        const sourceAtEnd = rect(300 - sourceWidth, 0, sourceWidth, 36)
+        const targetAtEnd = rect(300 - targetWidth, 0, targetWidth, 36)
+        assert.equal(
+            sortable.findSortAnchorIndex(
+                [targetAtEnd],
+                'horizontal',
+                sortable.getDirectionalSortProbe(sourceAtEnd, 'horizontal', 1, 0),
+            ),
+            -1,
+        )
+    }
+}
+
+// Grid movement uses the dominant axis, so the same column can reach first/last rows.
+const gridTop = rect(0, 0, 80, 38)
+assert.equal(
+    sortable.findSortAnchorIndex(
+        [gridTop],
+        'grid',
+        sortable.getDirectionalSortProbe(gridTop, 'grid', 0, -8),
+    ),
+    0,
+)
+const gridBottom = rect(0, 82, 80, 38)
+assert.equal(
+    sortable.findSortAnchorIndex(
+        [gridBottom],
+        'grid',
+        sortable.getDirectionalSortProbe(gridBottom, 'grid', 0, 8),
+    ),
+    1,
+)
+
+// Partially filled rows expose only occupied grid slots, never trailing empty cells.
+const fourColumnSevenItems = [
+    rect(0, 0, 80, 38),
+    rect(88, 0, 80, 38),
+    rect(176, 0, 80, 38),
+    rect(264, 0, 80, 38),
+    rect(0, 44, 80, 38),
+    rect(88, 44, 80, 38),
+    rect(176, 44, 80, 38),
+]
+assert.deepEqual(
+    sortable.clampGridDragPosition(
+        fourColumnSevenItems,
+        80,
+        38,
+        { left: 264, top: 44 },
+        rect(0, 0, 344, 82),
+    ),
+    { left: 176, top: 44 },
+)
+
+const fourColumnFiveItems = fourColumnSevenItems.slice(0, 5)
+assert.deepEqual(
+    sortable.clampGridDragPosition(
+        fourColumnFiveItems,
+        80,
+        38,
+        { left: 264, top: 44 },
+        rect(0, 0, 344, 82),
+    ),
+    { left: 0, top: 44 },
+)
+
+// Full rows still expose their complete horizontal range.
+const fourColumnEightItems = [...fourColumnSevenItems, rect(264, 44, 80, 38)]
+assert.deepEqual(
+    sortable.clampGridDragPosition(
+        fourColumnEightItems,
+        80,
+        38,
+        { left: 264, top: 44 },
+        rect(0, 0, 344, 82),
+    ),
+    { left: 264, top: 44 },
+)
+
+// Pointer motion into an invalid empty slot must not sort when the entity is clamped in place.
+assert.equal(
+    sortable.getEffectiveSortMovement('grid', 20, 0, 0, 0),
+    null,
+)
+assert.equal(
+    sortable.getEffectiveSortMovement('horizontal', 20, 0, 0, 0),
+    null,
+)
+
+// Grid keeps pointer intent as the active axis while using actual entity displacement.
+assert.deepEqual(
+    sortable.getEffectiveSortMovement('grid', 1, 12, -88, 8),
+    { deltaX: 0, deltaY: 8 },
+)
+assert.deepEqual(
+    sortable.getEffectiveSortMovement('grid', 12, 1, 8, 44),
+    { deltaX: 8, deltaY: 0 },
+)
+
+console.log('sortable geometry tests passed')

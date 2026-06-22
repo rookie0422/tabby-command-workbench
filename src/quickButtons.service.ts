@@ -14,6 +14,14 @@ import {
     stripDelaySteps,
 } from './commandSequence'
 import { CONFIG_KEY, LEGACY_CONFIG_KEY, selectPersistedConfig } from './config'
+import {
+    clampGridDragPosition,
+    findSortAnchorIndex,
+    getDirectionalSortProbe,
+    getEffectiveSortMovement,
+    SortDirection,
+    SortProbe,
+} from './sortableGeometry'
 import { QUICK_SHELF_STYLES } from './styles'
 import {
     DEFAULT_SIDEBAR_WIDTH,
@@ -40,6 +48,13 @@ interface EditingState {
     categoryId: string
     id: string
     kind: ItemKind
+}
+
+interface AnimatedSortableOptions {
+    container: HTMLElement
+    itemSelector: string
+    direction: SortDirection
+    onCommit: (orderedIds: string[]) => void
 }
 
 @Injectable({ providedIn: 'root' })
@@ -314,128 +329,15 @@ export class CommandWorkbenchService {
         const tabs = document.createElement('div')
         tabs.className = 'quick-shelf__categories'
 
-        let dragSession: {
-            source: HTMLElement
-            initialOrder: string[]
-            dropped: boolean
-        } | null = null
-        let suppressedClickCategoryId: string | null = null
-        let suppressedClickTimer: number | null = null
-        const reorderAnimations = new WeakMap<HTMLElement, Animation>()
-
-        const categoryButtons = (): HTMLElement[] => Array.from(
-            tabs.querySelectorAll<HTMLElement>('.quick-shelf__category'),
-        )
-        const orderFromDOM = (): string[] => categoryButtons().map(btn => btn.dataset.categoryId!)
-        const sameOrder = (left: string[], right: string[]): boolean => (
-            left.length === right.length && left.every((id, index) => id === right[index])
-        )
-        const animateReorder = (reorder: () => void, excluded?: HTMLElement): void => {
-            const buttons = categoryButtons()
-            const previousPositions = new Map(buttons.map(btn => [btn, btn.getBoundingClientRect()]))
-            for (const button of buttons) {
-                reorderAnimations.get(button)?.cancel()
-            }
-
-            reorder()
-            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-                return
-            }
-
-            for (const button of buttons) {
-                if (button === excluded) {
-                    continue
-                }
-                const previous = previousPositions.get(button)
-                const current = button.getBoundingClientRect()
-                const deltaX = previous ? previous.left - current.left : 0
-                if (Math.abs(deltaX) < 0.5) {
-                    continue
-                }
-                const animation = button.animate(
-                    [
-                        { transform: `translateX(${deltaX}px)` },
-                        { transform: 'translateX(0)' },
-                    ],
-                    { duration: 170, easing: 'cubic-bezier(.2, 0, 0, 1)' },
-                )
-                reorderAnimations.set(button, animation)
-                const cleanup = (): void => {
-                    if (reorderAnimations.get(button) === animation) {
-                        reorderAnimations.delete(button)
-                    }
-                }
-                animation.addEventListener('finish', cleanup, { once: true })
-                animation.addEventListener('cancel', cleanup, { once: true })
-            }
-        }
-        const restoreOrder = (orderedIds: string[]): void => {
-            if (sameOrder(orderFromDOM(), orderedIds)) {
-                return
-            }
-            const lookup = new Map(categoryButtons().map(button => [button.dataset.categoryId!, button]))
-            animateReorder(() => {
-                const fragment = document.createDocumentFragment()
-                for (const id of orderedIds) {
-                    const button = lookup.get(id)
-                    if (button) {
-                        fragment.appendChild(button)
-                    }
-                }
-                tabs.appendChild(fragment)
-            })
-        }
-        const suppressTrailingClick = (categoryId: string): void => {
-            suppressedClickCategoryId = categoryId
-            if (suppressedClickTimer !== null) {
-                clearTimeout(suppressedClickTimer)
-            }
-            suppressedClickTimer = window.setTimeout(() => {
-                suppressedClickCategoryId = null
-                suppressedClickTimer = null
-            }, 0)
-        }
-
         for (const category of model.categories) {
             const button = document.createElement('button')
             button.type = 'button'
             button.className = `quick-shelf__category ${category.id === model.activeCategoryId ? 'is-active' : ''}`
             button.style.setProperty('--category-color', category.color)
             button.textContent = category.name
-            button.draggable = true
-            button.dataset.categoryId = category.id
-
-            button.addEventListener('dragstart', event => {
-                dragSession = {
-                    source: button,
-                    initialOrder: orderFromDOM(),
-                    dropped: false,
-                }
-                button.classList.add('is-dragging')
-                event.dataTransfer!.effectAllowed = 'move'
-                event.dataTransfer!.setData('text/plain', category.id)
-            })
-
-            button.addEventListener('dragend', () => {
-                button.classList.remove('is-dragging')
-                const session = dragSession
-                if (!session || session.source !== button) {
-                    return
-                }
-                if (!session.dropped) {
-                    restoreOrder(session.initialOrder)
-                }
-                dragSession = null
-                suppressTrailingClick(category.id)
-            })
+            button.dataset.sortableId = category.id
 
             button.addEventListener('click', event => {
-                if (suppressedClickCategoryId === category.id) {
-                    event.preventDefault()
-                    event.stopPropagation()
-                    suppressedClickCategoryId = null
-                    return
-                }
                 event.preventDefault()
                 event.stopPropagation()
                 this.editing = null
@@ -468,54 +370,11 @@ export class CommandWorkbenchService {
             tabs.appendChild(button)
         }
 
-        const commitOrderFromDOM = (): void => {
-            const orderedIds = orderFromDOM()
-            const currentModel = this.getModel()
-            const currentIds = currentModel.categories.map(category => category.id)
-            if (sameOrder(orderedIds, currentIds)) return
-
-            const lookup = new Map(currentModel.categories.map(category => [category.id, category]))
-            const orderedCategories = orderedIds.map(id => lookup.get(id))
-            if (orderedCategories.some(category => !category)) return
-
-            currentModel.categories = orderedCategories as QuickCategory[]
-            this.writeModelToConfig(currentModel)
-            void this.config.save()
-        }
-
-        tabs.addEventListener('dragover', event => {
-            const session = dragSession
-            if (!session) return
-
-            event.preventDefault()
-            event.dataTransfer!.dropEffect = 'move'
-
-            const dragging = session.source
-
-            const siblings = Array.from(
-                tabs.querySelectorAll<HTMLElement>('.quick-shelf__category:not(.is-dragging)'),
-            )
-            const anchor = siblings.find(sib => {
-                const rect = sib.getBoundingClientRect()
-                return event.clientX < rect.left + rect.width / 2
-            })
-
-            if (anchor) {
-                if (dragging.nextElementSibling === anchor) return
-                animateReorder(() => tabs.insertBefore(dragging, anchor), dragging)
-            } else {
-                if (tabs.lastElementChild === dragging) return
-                animateReorder(() => tabs.appendChild(dragging), dragging)
-            }
-        })
-
-        tabs.addEventListener('drop', event => {
-            const session = dragSession
-            if (!session) return
-
-            event.preventDefault()
-            session.dropped = true
-            commitOrderFromDOM()
+        this.enableAnimatedSorting({
+            container: tabs,
+            itemSelector: '.quick-shelf__category',
+            direction: 'horizontal',
+            onCommit: orderedIds => this.commitCategoryOrder(orderedIds),
         })
 
         const menu = this.iconButton('⋯', '分类管理', () => {
@@ -540,6 +399,361 @@ export class CommandWorkbenchService {
 
         wrapper.append(tabs, menu)
         return wrapper
+    }
+
+    private enableAnimatedSorting (options: AnimatedSortableOptions): void {
+        const { container, itemSelector, direction, onCommit } = options
+        let pointerSession: {
+            source: HTMLElement
+            pointerId: number
+            startClientX: number
+            startClientY: number
+            grabOffsetX: number
+            grabOffsetY: number
+            active: boolean
+            translateX: number
+            translateY: number
+            lastClientX: number
+            lastClientY: number
+            lastVisualLeft: number
+            lastVisualTop: number
+            lastScrollLeft: number
+            lastScrollTop: number
+        } | null = null
+        let suppressedClickId: string | null = null
+        let suppressedClickTimer: number | null = null
+        const reorderAnimations = new WeakMap<HTMLElement, Animation>()
+
+        const items = (): HTMLElement[] => Array.from(
+            container.querySelectorAll<HTMLElement>(itemSelector),
+        )
+        const orderFromDOM = (): string[] => items().map(item => item.dataset.sortableId!)
+        const animateReorder = (reorder: () => void, excluded?: HTMLElement): void => {
+            const currentItems = items()
+            const previousPositions = new Map(currentItems.map(item => [item, item.getBoundingClientRect()]))
+            for (const item of currentItems) {
+                reorderAnimations.get(item)?.cancel()
+            }
+
+            reorder()
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                return
+            }
+
+            for (const item of currentItems) {
+                if (item === excluded) {
+                    continue
+                }
+                const previous = previousPositions.get(item)
+                const current = item.getBoundingClientRect()
+                const deltaX = previous ? previous.left - current.left : 0
+                const deltaY = previous ? previous.top - current.top : 0
+                if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) {
+                    continue
+                }
+                const animation = item.animate(
+                    [
+                        { transform: `translate(${deltaX}px, ${deltaY}px)` },
+                        { transform: 'translate(0, 0)' },
+                    ],
+                    { duration: 170, easing: 'cubic-bezier(.2, 0, 0, 1)' },
+                )
+                reorderAnimations.set(item, animation)
+                const cleanup = (): void => {
+                    if (reorderAnimations.get(item) === animation) {
+                        reorderAnimations.delete(item)
+                    }
+                }
+                animation.addEventListener('finish', cleanup, { once: true })
+                animation.addEventListener('cancel', cleanup, { once: true })
+            }
+        }
+        const suppressTrailingClick = (id: string): void => {
+            suppressedClickId = id
+            if (suppressedClickTimer !== null) {
+                clearTimeout(suppressedClickTimer)
+            }
+            suppressedClickTimer = window.setTimeout(() => {
+                suppressedClickId = null
+                suppressedClickTimer = null
+            }, 250)
+        }
+
+        container.addEventListener('click', event => {
+            if (!suppressedClickId) return
+            event.preventDefault()
+            event.stopImmediatePropagation()
+            suppressedClickId = null
+        }, true)
+
+        const removePointerListeners = (): void => {
+            window.removeEventListener('pointermove', onPointerMove, true)
+            window.removeEventListener('pointerup', onPointerUp, true)
+            window.removeEventListener('pointercancel', onPointerCancel, true)
+            window.removeEventListener('blur', onWindowBlur)
+        }
+        const updateDraggedPosition = (session: NonNullable<typeof pointerSession>, clientX: number, clientY: number): void => {
+            const rect = session.source.getBoundingClientRect()
+            const layoutLeft = rect.left - session.translateX
+            const layoutTop = rect.top - session.translateY
+            const containerRect = container.getBoundingClientRect()
+            const bounds = {
+                left: containerRect.left,
+                top: containerRect.top,
+                right: containerRect.left + container.clientWidth,
+                bottom: containerRect.top + container.clientHeight,
+                width: container.clientWidth,
+                height: container.clientHeight,
+            }
+            const rawDesiredLeft = clientX - session.grabOffsetX
+            const rawDesiredTop = clientY - session.grabOffsetY
+            const maxLeft = Math.max(bounds.left, bounds.right - rect.width)
+            const maxTop = Math.max(bounds.top, bounds.bottom - rect.height)
+            const clamped = direction === 'grid'
+                ? clampGridDragPosition(
+                    items().map(item => this.getSortableLayoutRect(item)),
+                    rect.width,
+                    rect.height,
+                    { left: rawDesiredLeft, top: rawDesiredTop },
+                    bounds,
+                )
+                : {
+                    left: Math.min(maxLeft, Math.max(bounds.left, rawDesiredLeft)),
+                    top: Math.min(maxTop, Math.max(bounds.top, rawDesiredTop)),
+                }
+            const desiredLeft = clamped.left
+            const desiredTop = clamped.top
+            session.translateX = direction === 'vertical' ? 0 : desiredLeft - layoutLeft
+            session.translateY = direction === 'horizontal' ? 0 : desiredTop - layoutTop
+            session.source.style.transform = `translate(${session.translateX}px, ${session.translateY}px)`
+        }
+        const finishPointerDrag = (): void => {
+            const session = pointerSession
+            if (!session) return
+
+            removePointerListeners()
+            if (session.source.hasPointerCapture(session.pointerId)) {
+                session.source.releasePointerCapture(session.pointerId)
+            }
+            pointerSession = null
+            if (!session.active) {
+                return
+            }
+
+            session.source.classList.remove('is-dragging')
+            document.body.classList.remove('command-workbench-sorting')
+            const orderedIds = orderFromDOM()
+            animateReorder(() => {
+                session.source.style.removeProperty('transform')
+                session.source.style.removeProperty('will-change')
+            })
+            onCommit(orderedIds)
+            suppressTrailingClick(session.source.dataset.sortableId!)
+        }
+        const onPointerMove = (event: PointerEvent): void => {
+            const session = pointerSession
+            if (!session || event.pointerId !== session.pointerId) return
+
+            const movementX = event.clientX - session.startClientX
+            const movementY = event.clientY - session.startClientY
+            if (!session.active) {
+                if (Math.hypot(movementX, movementY) < 4) return
+                session.active = true
+                session.source.classList.add('is-dragging')
+                session.source.style.willChange = 'transform'
+                document.body.classList.add('command-workbench-sorting')
+                reorderAnimations.get(session.source)?.cancel()
+            }
+
+            event.preventDefault()
+            this.scrollSortableContainer(container, direction, event)
+            updateDraggedPosition(session, event.clientX, event.clientY)
+
+            const draggingRect = session.source.getBoundingClientRect()
+            const pointerDeltaX = event.clientX - session.lastClientX
+            const pointerDeltaY = event.clientY - session.lastClientY
+            const movement = getEffectiveSortMovement(
+                direction,
+                pointerDeltaX,
+                pointerDeltaY,
+                draggingRect.left - session.lastVisualLeft + container.scrollLeft - session.lastScrollLeft,
+                draggingRect.top - session.lastVisualTop + container.scrollTop - session.lastScrollTop,
+            )
+            session.lastClientX = event.clientX
+            session.lastClientY = event.clientY
+            session.lastScrollLeft = container.scrollLeft
+            session.lastScrollTop = container.scrollTop
+            if (!movement) {
+                session.lastVisualLeft = draggingRect.left
+                session.lastVisualTop = draggingRect.top
+                return
+            }
+            const probe = getDirectionalSortProbe(
+                draggingRect,
+                direction,
+                movement.deltaX,
+                movement.deltaY,
+            )
+            const siblings = items().filter(item => item !== session.source)
+            const anchor = this.findSortAnchor(siblings, direction, probe)
+            if (anchor && session.source.nextElementSibling !== anchor) {
+                animateReorder(() => container.insertBefore(session.source, anchor), session.source)
+                updateDraggedPosition(session, event.clientX, event.clientY)
+            } else if (!anchor && container.lastElementChild !== session.source) {
+                animateReorder(() => container.appendChild(session.source), session.source)
+                updateDraggedPosition(session, event.clientX, event.clientY)
+            }
+            const updatedRect = session.source.getBoundingClientRect()
+            session.lastVisualLeft = updatedRect.left
+            session.lastVisualTop = updatedRect.top
+        }
+        const onPointerUp = (event: PointerEvent): void => {
+            const session = pointerSession
+            if (!session || event.pointerId !== session.pointerId) return
+            if (session.active) {
+                event.preventDefault()
+            }
+            finishPointerDrag()
+        }
+        const onPointerCancel = (event: PointerEvent): void => {
+            if (pointerSession && event.pointerId === pointerSession.pointerId) {
+                finishPointerDrag()
+            }
+        }
+        const onWindowBlur = (): void => finishPointerDrag()
+
+        for (const item of items()) {
+            item.draggable = false
+            item.addEventListener('pointerdown', event => {
+                if (event.button !== 0 || !event.isPrimary || pointerSession) return
+
+                reorderAnimations.get(item)?.cancel()
+                const rect = item.getBoundingClientRect()
+                pointerSession = {
+                    source: item,
+                    pointerId: event.pointerId,
+                    startClientX: event.clientX,
+                    startClientY: event.clientY,
+                    grabOffsetX: event.clientX - rect.left,
+                    grabOffsetY: event.clientY - rect.top,
+                    active: false,
+                    translateX: 0,
+                    translateY: 0,
+                    lastClientX: event.clientX,
+                    lastClientY: event.clientY,
+                    lastVisualLeft: rect.left,
+                    lastVisualTop: rect.top,
+                    lastScrollLeft: container.scrollLeft,
+                    lastScrollTop: container.scrollTop,
+                }
+                item.setPointerCapture(event.pointerId)
+                window.addEventListener('pointermove', onPointerMove, true)
+                window.addEventListener('pointerup', onPointerUp, true)
+                window.addEventListener('pointercancel', onPointerCancel, true)
+                window.addEventListener('blur', onWindowBlur)
+            })
+        }
+    }
+
+    private scrollSortableContainer (
+        container: HTMLElement,
+        direction: SortDirection,
+        event: MouseEvent,
+    ): void {
+        const rect = container.getBoundingClientRect()
+        const edgeSize = 24
+        const scrollStep = 12
+        if (direction === 'horizontal') {
+            if (event.clientX < rect.left + edgeSize) {
+                container.scrollLeft -= scrollStep
+            } else if (event.clientX > rect.right - edgeSize) {
+                container.scrollLeft += scrollStep
+            }
+            return
+        }
+        if (event.clientY < rect.top + edgeSize) {
+            container.scrollTop -= scrollStep
+        } else if (event.clientY > rect.bottom - edgeSize) {
+            container.scrollTop += scrollStep
+        }
+    }
+
+    private getSortableLayoutRect (element: HTMLElement): {
+        left: number
+        top: number
+        right: number
+        bottom: number
+        width: number
+        height: number
+    } {
+        const rect = element.getBoundingClientRect()
+        const transform = window.getComputedStyle(element).transform
+        if (!transform || transform === 'none') {
+            return rect
+        }
+        try {
+            const matrix = new DOMMatrixReadOnly(transform)
+            const left = rect.left - matrix.m41
+            const top = rect.top - matrix.m42
+            return {
+                left,
+                top,
+                right: left + rect.width,
+                bottom: top + rect.height,
+                width: rect.width,
+                height: rect.height,
+            }
+        } catch {
+            return rect
+        }
+    }
+
+    private findSortAnchor (
+        siblings: HTMLElement[],
+        direction: SortDirection,
+        probe: SortProbe,
+    ): HTMLElement | null {
+        const layouts = siblings.map(element => ({ element, rect: this.getSortableLayoutRect(element) }))
+        const anchorIndex = findSortAnchorIndex(layouts.map(layout => layout.rect), direction, probe)
+        return anchorIndex < 0 || anchorIndex >= layouts.length
+            ? null
+            : layouts[anchorIndex].element
+    }
+
+    private commitCategoryOrder (orderedIds: string[]): void {
+        const model = this.getModel()
+        const ordered = this.reorderItemsById(model.categories, orderedIds)
+        if (!ordered || ordered.every((category, index) => category === model.categories[index])) {
+            return
+        }
+        model.categories = ordered
+        this.writeModelToConfig(model)
+        void this.config.save()
+    }
+
+    private commitShelfItemOrder (categoryId: string, kind: ItemKind, orderedIds: string[]): void {
+        const model = this.getModel()
+        const category = model.categories.find(candidate => candidate.id === categoryId)
+        if (!category) return
+
+        if (kind === 'quick') {
+            const ordered = this.reorderItemsById(category.quickButtons, orderedIds)
+            if (!ordered || ordered.every((item, index) => item === category.quickButtons[index])) return
+            category.quickButtons = ordered
+        } else {
+            const ordered = this.reorderItemsById(category.commonCommands, orderedIds)
+            if (!ordered || ordered.every((item, index) => item === category.commonCommands[index])) return
+            category.commonCommands = ordered
+        }
+        this.writeModelToConfig(model)
+        void this.config.save()
+    }
+
+    private reorderItemsById<T extends { id: string }> (items: T[], orderedIds: string[]): T[] | null {
+        if (items.length !== orderedIds.length) return null
+        const lookup = new Map(items.map(item => [item.id, item]))
+        const ordered = orderedIds.map(id => lookup.get(id))
+        return ordered.some(item => !item) ? null : ordered as T[]
     }
 
     private createCategoryEditor (category: QuickCategory): HTMLElement {
@@ -580,7 +794,8 @@ export class CommandWorkbenchService {
                 isDangerousSend ? 'is-dangerous' : '',
             ].filter(Boolean).join(' ')
             card.style.setProperty('--item-color', command.color)
-            card.title = `${command.text}\n左键${command.action === 'copy' ? '复制' : isSend ? '发送并回车' : '填充到当前终端'}，右键管理`
+            card.dataset.sortableId = command.id
+            card.title = `${command.text}\n拖动调整顺序，左键${command.action === 'copy' ? '复制' : isSend ? '发送并回车' : '填充到当前终端'}，右键管理`
             card.addEventListener('contextmenu', event => this.openItemContextMenu(event, category.id, command, 'quick'))
 
             const execute = document.createElement('button')
@@ -598,6 +813,13 @@ export class CommandWorkbenchService {
             card.append(execute)
             content.appendChild(card)
         }
+
+        this.enableAnimatedSorting({
+            container: content,
+            itemSelector: '.quick-shelf__quick-card',
+            direction: 'grid',
+            onCommit: orderedIds => this.commitShelfItemOrder(category.id, 'quick', orderedIds),
+        })
 
         const section = this.section(
             '快捷命令按钮',
@@ -620,8 +842,9 @@ export class CommandWorkbenchService {
             const card = document.createElement('article')
             card.className = 'quick-shelf__item-card'
             card.style.setProperty('--item-color', command.color)
+            card.dataset.sortableId = command.id
             card.classList.add('is-command')
-            card.title = `${command.text}${command.description ? `\n${command.description}` : ''}\n左键复制，右键管理`
+            card.title = `${command.text}${command.description ? `\n${command.description}` : ''}\n拖动调整顺序，左键复制，右键管理`
             card.tabIndex = 0
             card.setAttribute('role', 'button')
             const text = document.createElement('pre')
@@ -643,6 +866,13 @@ export class CommandWorkbenchService {
             card.addEventListener('contextmenu', event => this.openItemContextMenu(event, category.id, command, 'common'))
             content.appendChild(card)
         }
+
+        this.enableAnimatedSorting({
+            container: content,
+            itemSelector: '.quick-shelf__item-card.is-command',
+            direction: 'vertical',
+            onCommit: orderedIds => this.commitShelfItemOrder(category.id, 'common', orderedIds),
+        })
 
         const section = this.section(
             '常用命令',

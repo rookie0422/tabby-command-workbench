@@ -67,6 +67,11 @@ export const QUICK_SHELF_STYLES = `
     body.command-workbench-resizing.command-workbench-tabs-vertical app-root > .content {
         transition: none !important;
     }
+    body.command-workbench-sorting,
+    body.command-workbench-sorting * {
+        cursor: grabbing !important;
+        user-select: none !important;
+    }
     .quick-shelf {
         --shelf-width: 390px;
         position: fixed; top: 42px; right: 0; bottom: 0; z-index: 10000;
@@ -112,19 +117,22 @@ export const QUICK_SHELF_STYLES = `
         display: grid; grid-template-columns: minmax(0, 1fr) 34px; gap: 8px;
         padding: 9px 12px; border-bottom: 1px solid rgba(148, 163, 184, .16);
     }
-    .quick-shelf__categories { display: flex; min-width: 0; gap: 6px; overflow-x: auto; scrollbar-width: thin; }
+    .quick-shelf__categories {
+        display: flex; min-width: 0; gap: 6px;
+        overflow-x: auto; overflow-y: hidden; scrollbar-width: thin;
+    }
     .quick-shelf__category {
         position: relative; flex: 0 0 auto; min-height: 36px; padding: 6px 13px;
         border: 1px solid rgba(148, 163, 184, .22); border-radius: 999px;
         color: #cbd5e1; background: #182338; cursor: grab;
         user-select: none; -webkit-user-select: none;
-        transition: opacity .12s ease, border-color .12s ease, background-color .12s ease;
+        transition: border-color .12s ease, background-color .12s ease;
     }
     .quick-shelf__category.is-active {
         color: #fff; border-color: var(--category-color);
         box-shadow: inset 0 -3px 0 var(--category-color);
     }
-    .quick-shelf__category.is-dragging { z-index: 1; opacity: .3; cursor: grabbing; }
+    .quick-shelf__category.is-dragging { z-index: 1; cursor: grabbing; }
     .quick-shelf__category-editor {
         display: grid; grid-template-columns: minmax(0, 1fr) 74px; gap: 8px;
         padding: 10px 12px; border-bottom: 1px solid rgba(148, 163, 184, .16);
@@ -158,12 +166,13 @@ export const QUICK_SHELF_STYLES = `
     .quick-shelf__quick-grid {
         display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px;
         grid-auto-rows: 38px; max-height: 126px; align-content: start;
-        overflow-y: auto; padding-right: 2px;
+        overflow-x: hidden; overflow-y: auto; padding-right: 2px;
     }
     .quick-shelf__quick-card {
         position: relative; min-width: 0; overflow: hidden;
         border: 1px solid color-mix(in srgb, var(--item-color) 45%, #334155);
-        border-radius: 8px; background: #121d30;
+        border-radius: 8px; background: #121d30; cursor: grab;
+        user-select: none; -webkit-user-select: none;
     }
     .quick-shelf__quick-card.is-send {
         border-color: color-mix(in srgb, var(--item-color) 70%, #f59e0b);
@@ -188,7 +197,7 @@ export const QUICK_SHELF_STYLES = `
     .quick-shelf__quick-card.is-dangerous .quick-shelf__quick-mode { color: #fca5a5; }
     .quick-shelf__list {
         display: flex; max-height: 190px; padding-right: 2px;
-        flex-direction: column; gap: 5px; overflow-y: auto;
+        flex-direction: column; gap: 5px; overflow-x: hidden; overflow-y: auto;
     }
     .quick-shelf__item-card {
         display: flex; min-width: 0; padding: 10px; flex-direction: column; gap: 8px;
@@ -203,8 +212,13 @@ export const QUICK_SHELF_STYLES = `
     }
     .quick-shelf__item-card.is-command {
         min-height: 34px; padding: 6px 9px; justify-content: center;
-        gap: 0; cursor: copy; transition: border-color .16s ease, background .16s ease;
+        gap: 0; cursor: grab; user-select: none; -webkit-user-select: none;
+        transition: border-color .16s ease, background .16s ease;
     }
+    .quick-shelf__quick-card.is-dragging,
+    .quick-shelf__item-card.is-command.is-dragging { z-index: 1; cursor: grabbing; }
+    .quick-shelf__quick-card.is-dragging *,
+    .quick-shelf__item-card.is-command.is-dragging * { cursor: grabbing !important; }
     .quick-shelf__item-card.is-command:hover,
     .quick-shelf__item-card.is-command:focus-visible {
         border-color: var(--item-color); background: #16243a; outline: none;
