@@ -559,6 +559,7 @@ export class CommandWorkbenchService {
             if (!session.active) {
                 if (Math.hypot(movementX, movementY) < 4) return
                 session.active = true
+                session.source.setPointerCapture(session.pointerId)
                 session.source.classList.add('is-dragging')
                 session.source.style.willChange = 'transform'
                 document.body.classList.add('command-workbench-sorting')
@@ -646,7 +647,6 @@ export class CommandWorkbenchService {
                     lastScrollLeft: container.scrollLeft,
                     lastScrollTop: container.scrollTop,
                 }
-                item.setPointerCapture(event.pointerId)
                 window.addEventListener('pointermove', onPointerMove, true)
                 window.addEventListener('pointerup', onPointerUp, true)
                 window.addEventListener('pointercancel', onPointerCancel, true)
